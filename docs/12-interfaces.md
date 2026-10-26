@@ -132,9 +132,13 @@ How a host applies it:
 | Postfix milter (hooks B, E) | milter return code plus `smfi_addheader` / `smfi_chgheader` | optional |
 
 The deadline for the whole call is configured well below `sieve_filter_exec_timeout` (default
-10 s) and is measured. Past it, or with the daemon unreachable or its directive invalid, the filter
-writes the original message with only foreign firstread headers removed and exits 0. If even that
-is impossible (no line ending at all) it writes nothing and exits non-zero; so does a crash.
+10 s) and is measured; `firstread-filter` enforces it itself (`FIRSTREAD_DEADLINE_MS`, default
+2,000 ms), on a thread separate from the daemon call. This is not only about latency: on Dovecot
+2.3.21 / Pigeonhole 0.5.21 a filter killed at `sieve_filter_exec_timeout` crashes the LMTP process
+and the message is not stored (section 7). Past the deadline, or with the daemon unreachable or its
+directive invalid, the filter writes the original message with only foreign firstread headers
+removed and exits 0. If even that is impossible (no line ending at all) it writes nothing and exits
+non-zero; so does a crash.
 
 #### 4.1.1 The Sieve side
 
@@ -295,15 +299,29 @@ versions and recorded lookups (not the content). Learning reads events, never th
 | deadline passed | 0 | the same, or stamped with the tiers that finished | partial, `tiers=` says which |
 | malformed MIME | 0 | stamped with what could be read | `parse=failed` |
 | invalid directive from the daemon (fails validation) | 0 | original bytes minus foreign firstread headers; never partly applied | none; counted and alerted |
-| no line ending at all, the filter crashes, or it is killed at the timeout | non-zero | original bytes (Pigeonhole keeps the message; the `filter` test is false), with forged directive headers deleted by the `sieve_before` script | none |
+| no line ending at all, or the filter declines or crashes | non-zero | original bytes (Pigeonhole keeps the message; the `filter` test is false), with forged directive headers deleted by the `sieve_before` script | none |
+| the filter is killed at `sieve_filter_exec_timeout` | killed | **nothing, on Dovecot 2.3.21**: the LMTP process panics and the session drops (section 7). Prevented by the filter's own deadline | none |
+| shadow mode (`firstreadd --shadow`) | 0 | original bytes minus foreign firstread headers; the decision is only recorded | none |
 
 ## 7 · To verify on the deployed stack
 
-- One `sieve-test` run per case on the deployed version (`-s` adds the global scripts): stamped,
-  daemon down, filter declining, filter killed at the timeout, user rule that files the message,
-  forged directive headers in each case. Source reading (section 4.1.1) predicts the outcomes;
-  the run confirms them, including that `deleteheader` in `sieve_before` is visible in `sieve_after`
-  and that keywords set there reach the stored message.
+Run in the lab on Dovecot 2.3.21 / Pigeonhole 0.5.21 (Ubuntu 24.04 packages), delivering over LMTP
+and reading the stored mail back ([measurements/2026-10-26-lab-v0.md](measurements/2026-10-26-lab-v0.md),
+`lab/l2/`):
+
+| case | outcome |
+|---|---|
+| stamped, ham and spam, forged directive headers | as predicted: forged headers gone, spam in Junk with `$Junk`, ham in INBOX |
+| user rule that files the message | as predicted: the user's folder wins; firstread files nothing and sets no keyword |
+| daemon down; daemon that accepts and never answers | as predicted: INBOX, forged headers gone; the hang costs the filter's 2 s deadline |
+| filter declining (exit 1) | as predicted: INBOX; `deleteheader` in `sieve_before` is visible in `sieve_after` |
+| filter killed at `sieve_filter_exec_timeout` | **not as predicted**: LMTP panics (`output stream … (program client seekable output) is missing error handling`), signal 6, nothing stored |
+
+Still to do on the deployed version:
+
+- The same cases there, since the deployed Dovecot version is not known; and whether a later
+  Dovecot release handles a killed filter.
+- A filter terminated by a signal other than the timeout kill (not tested).
 - Differential test: for every fixture, the header names firstread's splitter sees equal the names
   Pigeonhole sees (`header :matches` dump through `sieve-test`).
 - Which client honours which of the stamp's headers and keywords ([03 · Client contract](03-client-contract.md)).
