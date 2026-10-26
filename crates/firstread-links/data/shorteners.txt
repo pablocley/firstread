@@ -1,0 +1,15 @@
+# Public URL-shortener domains (registrable domains). One per line; lines starting with # are ignored.
+bit.ly
+tinyurl.com
+t.co
+goo.gl
+ow.ly
+is.gd
+buff.ly
+rebrand.ly
+cutt.ly
+shorturl.at
+tiny.cc
+rb.gy
+t.ly
+s.id

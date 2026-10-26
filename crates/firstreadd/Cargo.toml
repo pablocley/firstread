@@ -7,18 +7,9 @@ publish.workspace = true
 
 [dependencies]
 firstread-core.workspace = true
-firstread-parse.workspace = true
-firstread-auth.workspace = true
-firstread-net.workspace = true
-firstread-links.workspace = true
-firstread-ml.workspace = true
-firstread-graph.workspace = true
-firstread-stamp.workspace = true
-firstread-outbound.workspace = true
-firstread-learn.workspace = true
-firstread-events.workspace = true
-firstread-commons.workspace = true
-firstread-digest.workspace = true
+firstread-pipeline.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

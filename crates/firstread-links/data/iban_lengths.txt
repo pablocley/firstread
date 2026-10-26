@@ -1,0 +1,19 @@
+# IBAN length per country (ISO 13616), as listed in django-localflavor's generic IBAN validator,
+# which follows the SWIFT IBAN registry. Countries not listed are not detected.
+AT 20
+BE 16
+CH 21
+DE 22
+DK 18
+ES 24
+FI 18
+FR 27
+GB 22
+IE 22
+IT 27
+LU 20
+NL 18
+NO 15
+PL 28
+PT 25
+SE 24

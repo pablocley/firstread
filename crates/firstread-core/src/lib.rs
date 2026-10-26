@@ -14,6 +14,7 @@
 //! - [`event`]: the append-only event log every learner consumes and every replay re-runs.
 //! - [`stamp`]: what gets written into and onto the message, and keyed for the API.
 //! - [`tier`]: cost tiers and deadlines.
+//! - [`wire`]: the frames between the delivery filter and the daemon.
 
 pub mod context;
 pub mod decision;
@@ -27,3 +28,4 @@ pub mod signal;
 pub mod stamp;
 pub mod tier;
 pub mod verdict;
+pub mod wire;

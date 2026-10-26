@@ -1,0 +1,19 @@
+[package]
+name = "firstread-pipeline"
+description = "One message through tier 0 and tier 1 to a verdict, a directive and a record. No sockets."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+firstread-parse.workspace = true
+firstread-auth.workspace = true
+firstread-links.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+
+[lints]
+workspace = true

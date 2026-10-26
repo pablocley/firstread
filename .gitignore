@@ -8,3 +8,9 @@ __pycache__/
 # never commit real mail
 *.real.eml
 private-eval/
+
+# Lab outputs (never committed)
+lab/runs/
+lab/results.tsv
+lab/pareto.tsv
+lab/run.log
