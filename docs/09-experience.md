@@ -84,14 +84,15 @@ reason, the overview of subscriptions, invoices and waiting threads, settings, e
 8. **Notifications are a feature.** Fewer pings for mail that can wait; never fewer for mail that matters.
 9. **Transparent and reversible learning.** "Waarom?" on any decision; export and erase what was
    learned; an off switch per mailbox and per organisation.
-10. **Accessible.** Banners are plain text first, readable by screen readers, high contrast, short.
+10. **Accessible.** Webmail banners and digest entries are plain text first, readable by screen
+    readers, high contrast, short.
 
 ## Scenarios
 
 | scenario | what happens |
 |---|---|
-| A bookkeeper receives an invoice from a regular supplier, sent from the supplier's real (compromised) account, with a new IBAN | authentication passes and the sender is known; bank-detail change fires; banner names the change; Business mode lists it under *Beveiliging*; one tap "Klopt" teaches the new IBAN |
-| A 70-year-old POP3 user gets a DigiD phishing mail | lookalike and brand-impersonation fire; Subject gets the prefix; the message stays in the inbox (POP3); after six other mailboxes junk the same campaign, later copies are filed for everyone |
+| A bookkeeper receives an invoice from a regular supplier, sent from the supplier's real (compromised) account, with a new IBAN | authentication passes and the sender is known; bank-detail change fires; the webmail banner and the digest name the change; Business mode lists it under *Beveiliging*; one tap "Klopt" teaches the new IBAN |
+| A 70-year-old POP3 user gets a DigiD phishing mail | lookalike and brand-impersonation fire; Subject gets the prefix; the message stays in the inbox (POP3); after six other mailboxes junk the same campaign, later copies are filed for everyone (for POP3 mailboxes at the stricter Junk threshold, since POP3 never shows Junk) |
 | A developer gets 200 monitoring alerts a day | sender kind "machine / system", never junk; Focused mode keeps them out of the inbox if the user never opens them during the day, which the digest suggests first |
 | A team inbox gets a quote request between 50 spam mails | spam filed; the quote request tagged and kept; team feedback trains the organisation scope, not one person's habits |
 | A user keeps moving a newsletter from Later back to the inbox | after a couple of moves, the residual head flips for that list; no button pressed |

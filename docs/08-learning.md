@@ -21,7 +21,7 @@ weight it by how much it really says, and make explicit feedback cost one tap.
 | read soon after arrival | none | interest | weak | `message_read` |
 | deleted unread | none | low interest (not "junk": people delete bills they already know) | weak | `message_trash` / `message_expunge` |
 | never read, list mail | none | low interest in that list | weak, accumulates | absence of `message_read` |
-| one-tap banner or digest link | one tap | the verdict or tag in question | strong | API (F) |
+| one-tap webmail banner or digest link | one tap | the verdict or tag in question | strong | API (F) |
 | webmail buttons and "why?" corrections | one tap | verdict, tag, or which reason was wrong | strong | API |
 | campaign confirmed bad | none | every copy is bad | strong, platform | platform loop |
 | support or abuse desk labels | staff | ground truth for hard cases | strongest, rare | admin API |
@@ -32,6 +32,11 @@ labels on the same messages, per mailbox type, and kept only where they predict.
 
 What firstread does **not** use: link clicks, read receipts, tracking pixels, time spent reading.
 It does not track people.
+
+What is **not a label**: anything firstread did itself. Keywords present at delivery, keywords and
+moves made through hook C, and Sieve filing by firstread's own scripts are recorded when they
+happen, and the event adapter drops their echoes (`flags_set`, IMAPSieve copies) before any
+learner sees them. Only changes a person makes after delivery count.
 
 ## 2 · Learners, from fastest to slowest
 

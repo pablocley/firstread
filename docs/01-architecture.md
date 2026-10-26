@@ -4,7 +4,10 @@
 
 "Between IMAP and POP" exists on every mail stack: **final delivery into the mailbox** (Dovecot
 LMTP or LDA). Both protocols read from there. firstread hooks in at delivery, listens to what
-happens to mail afterwards, and optionally hooks the SMTP side.
+happens to mail afterwards, and optionally hooks the SMTP side. Exactly what goes in and what comes
+out, and how that matches milter, Rspamd and SpamAssassin conventions, is in
+[12 · Interfaces](12-interfaces.md): the input is the message plus its delivery context; the output
+is a verdict and a bounded edit list, never a new message.
 
 ```
  inbound                                                                               clients
@@ -27,7 +30,7 @@ happens to mail afterwards, and optionally hooks the SMTP side.
 
 | hook | mechanism | role |
 |---|---|---|
-| **A** delivery | Dovecot Sieve `vnd.dovecot.filter` runs `firstread-filter`, which hands the message to the daemon over a Unix socket and writes back the stamped message | primary inbound path; MTA-agnostic |
+| **A** delivery | a global `sieve_before` script runs `firstread-filter` as a Sieve `filter` test with the message on stdin and the context in `USER`, `SENDER`, `RECIPIENT`, `ORIG_RECIPIENT`; the filter gets a directive from the daemon over a Unix socket and applies the header edits to the original bytes itself (body untouched); the user's own rules run next; a global `sieve_after` script files and flags from the derived headers ([12 · Interfaces](12-interfaces.md), section 4.1.1) | primary inbound path; MTA-agnostic |
 | **B** SMTP milter | `firstread-milter` on Postfix | optional pre-acceptance action; Exim has no milter ([Rspamd's integration table](https://docs.rspamd.com/tutorials/integration)) |
 | **C** post-delivery | `doveadm flags add -u <user> <keyword> <search query>` ([doveadm-flags(1)](https://doc.dovecot.org/main/core/man/doveadm-flags.1.html)) or IMAP with a master user | late results and retroactive verdicts on mail already delivered |
 | **D** moves | Dovecot IMAPSieve (RFC 6785) on copies into and out of Junk and other folders | strongest implicit feedback |
@@ -36,8 +39,8 @@ happens to mail afterwards, and optionally hooks the SMTP side.
 | **G** mailbox events | Dovecot push-notification Lua driver: `message_new`, `message_read`, `message_trash`, `message_expunge`, `flags_set` / `flags_clear` with keyword lists ([plugin docs](https://doc.dovecot.org/main/core/plugins/push_notification_lua.html)) | implicit feedback: read, deleted, flagged, tags removed or added |
 
 To verify on the deployed Dovecot version (the push-notification Lua page is the `main` branch
-documentation; 2.4 changed configuration syntax): the event list, and that Sieve tests after
-`filter` see the headers firstread added.
+documentation; 2.4 changed configuration syntax): the event list, and the Sieve behaviour that
+[12 · Interfaces](12-interfaces.md) section 7 lists, with one `sieve-test` run per case.
 
 ## Three tiers at delivery
 
@@ -79,14 +82,15 @@ Store choice: [ADR-0006](decisions/0006-central-store.md).
 
 | failure | behaviour |
 |---|---|
-| daemon unreachable, deadline exceeded, malformed reply | `firstread-filter` writes the original message unchanged and exits 0 |
+| daemon unreachable, deadline exceeded, malformed or invalid reply | `firstread-filter` writes the original message with only foreign firstread headers removed and exits 0 |
+| filter cannot parse the message at all, crashes or is killed | exits non-zero; Pigeonhole keeps the message unchanged and the `filter` test is false; the `sieve_before` script deletes any directive headers a sender put in it |
 | state store slow or down | deliver on tier 0 with local caches; mark `degraded`; finish later through hook C |
 | a learner produces a worse model | not promoted (champion / challenger on replay); if promoted and alarms fire, roll back to the previous snapshot |
 | model file missing or hash mismatch | that tier is skipped and the stamp says so |
 | overload | shed in order: inline tier 1, tier 0 extras, backfill, digests; never parsing and authentication |
 | commons hub unreachable | no effect on delivery; indicators expire on their own TTL |
-| firstread headers that arrived with the message, or `Authentication-Results` with our authserv-id not added inside our trust boundary | removed before stamping (RFC 8601 section 5); results from our own MTA or Rspamd are kept |
-| unparseable MIME | stamp `parse=failed`; deliver unchanged |
+| firstread headers that arrived with the message (any spelling, including `Name : value`), or `Authentication-Results` with our authserv-id not added inside our trust boundary | removed before stamping (RFC 8601 section 5); results from our own MTA or Rspamd are kept |
+| unparseable MIME | stamp `parse=failed`; body unchanged |
 
 The fail-open rate, degraded rate and per-tier deadline misses are first-class metrics with alerts.
 
@@ -104,7 +108,7 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 | `firstread-learn` | learners over the event log: counters, exemplars, residual heads, platform heads, promotion |
 | `firstread-events` | event schema and adapters: delivery, IMAPSieve, push-notification Lua, digest and API feedback |
 | `firstread-commons` | indicator export with privacy gates, signing, hub client, and the hub itself |
-| `firstread-stamp` | verdicts to headers, keywords, folders, Subject prefix, banner, API record |
+| `firstread-stamp` | verdicts to a directive (headers, keywords, folder key, Subject prefix) and the API record |
 | `firstread-digest` | the periodic digest mail and its signed one-tap actions |
 | `firstread-outbound` | pre-send checks, submission checks, delivery diagnostics, domain health |
 | `firstreadd` | the daemon: sockets, API, tier scheduling, queues, load shedding, metrics |

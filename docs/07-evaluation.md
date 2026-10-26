@@ -63,5 +63,5 @@ verdicts for other mailboxes must not move beyond a set tolerance.
 3. Headers and keywords on.
 4. Folders by mode; digest opt-in.
 5. Retroactive campaign actions.
-6. Subject prefix and banners last, per measured false-positive rate.
+6. Subject prefix and webmail banners last, per measured false-positive rate.
 7. Commons participation after legal review.

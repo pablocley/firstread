@@ -12,7 +12,7 @@ for different kinds of users is in [09-experience.md](09-experience.md).
 | IMAP keywords | yes, varies by client | no | yes | yes | yes (removing / adding a tag) |
 | folders (Sieve) | yes, every client | **no**, POP3 sees INBOX only | yes | yes | yes (moving mail) |
 | Subject prefix | yes | yes | yes | yes | no |
-| body banner with one-tap links | yes | yes | yes | yes | yes |
+| webmail banner with one-tap links (rendered from the API record, never written into the message) | no | no | yes | no | yes |
 | digest mail with one-tap links | yes | **yes** | yes | yes | yes |
 | HTTP API | no | no | yes | no | yes |
 
@@ -28,7 +28,9 @@ boundary (RFC 8601 section 5); results added by our own MTA or Rspamd stay.
 
 ```
 Authentication-Results: <authserv-id>; spf=pass smtp.mailfrom=…; dkim=pass header.d=…; dmarc=pass header.from=…
-X-Firstread: v=1; id=<opaque>; tiers=0,1; models=<release>; state=<learner snapshot>; verdict=fraud; p=0.91
+X-Firstread: v=1; d=<deployment>; id=<opaque>; tiers=0,1; models=<release>; state=<learner snapshot>; verdict=fraud; p=0.91; mac=<…>
+X-Firstread-Folder: inbox
+X-Firstread-Keywords: $Phishing fr-money
 X-Firstread-Scores: phishing=0.12; fraud=0.91; junk=0.04; important=0.66; urgency=4.1
 X-Firstread-Tags: money, request-action
 X-Firstread-Sender: relation=first-contact; domain-age-days=3; lookalike=1
@@ -36,7 +38,18 @@ X-Firstread-Campaign: id=<cluster id>; mailboxes=312
 X-Firstread-Reasons: =?UTF-8?Q?…?=  (localised, plain language)
 ```
 
-- `X-Firstread` is the one machine-parseable summary; the others can be switched off per platform.
+- `X-Firstread` is the one machine-parseable summary; the detail headers can be switched off per platform.
+- `mac` is an HMAC with a per-deployment key; webmail, the digest and the API show a stamp as
+  firstread's only when it verifies, so stamps inside imported or appended mail cannot pass as real.
+- `X-Firstread-Folder` (a folder key such as `junk` or `later`, not a folder name) and
+  `X-Firstread-Keywords` are the directive for the Sieve scripts; they are rendered only from the
+  validated directive, the Sieve scripts read them only after the filter vouched for the message,
+  and clients may ignore them ([12 · Interfaces](12-interfaces.md), section 4.1.1).
+- Compatibility mode, off by default, adds `X-Spam-Flag` / `X-Spam-Status` in SpamAssassin's format
+  for platforms with no other scanner, so clients that trust SpamAssassin headers act on them; it
+  never overwrites a scanner's own headers.
+- All values are built by the validating constructors in `firstread-core::directive`: no line
+  breaks from any input, RFC 2047 for non-ASCII, folded, size-capped ([12 · Interfaces](12-interfaces.md)).
 - `state` records which learner snapshot decided, so any decision can be replayed.
 - No extracted personal data in headers (IBANs, BSNs, OTP codes, amounts): API only.
 - Headers are written once, at delivery, and never rewritten; later knowledge updates keywords,
@@ -64,14 +77,15 @@ firstread keyword is also a feedback channel: removing one is a negative label, 
 
 ## Folders
 
-Sieve files mail from the headers firstread added, in the same script that sets keywords. Which
-folders exist depends on the mailbox's mode ([09](09-experience.md)): from "Junk only" to a
+A global Sieve script that runs after the user's own rules files mail from the folder key
+firstread added and sets the keywords; whatever the user's rules already filed stays where they
+put it. Which folders exist depends on the mailbox's mode ([09](09-experience.md)): from "Junk only" to a
 "Later" folder for low-interest bulk mail (fewer phone notifications) to category folders. Folder
 moves by the user are the richest feedback there is ([08](08-learning.md)).
 
-## One-tap feedback links (banner and digest)
+## One-tap feedback links (webmail banner and digest)
 
-Every warning banner and every digest item can carry links such as "this is safe", "this is a
+Every webmail warning banner and every digest item can carry links such as "this is safe", "this is a
 scam", "not a newsletter I want", "always file these in …".
 
 - Each link carries a signed, expiring token bound to one message, one mailbox and one action.
@@ -80,14 +94,15 @@ scam", "not a newsletter I want", "always file these in …".
 - No login needed; the token is the authorisation, limited to that one action.
 - Works in every client, including POP3.
 
-## Subject prefix and banner
+## Subject prefix, and why there is no body banner
 
-Both modify signed content: DKIM re-verification fails after a Subject change, and a body banner
-breaks S/MIME and PGP signatures.
-
-- Subject prefix: only `phishing` / `fraud` above a strict threshold; default on for POP3 mailboxes.
-- Banner: never on signed messages; default on only for `phishing` / `fraud` above threshold and
-  for first-contact payment requests; the platform decides after measuring false positives.
+- Subject prefix: a header edit, in place and once; only `phishing` / `fraud` above a strict
+  threshold; default on for POP3 mailboxes. DKIM re-verification fails after a Subject change, so
+  anything that re-verifies later must use our `Authentication-Results`.
+- No body banner. firstread never writes into the body: a banner breaks S/MIME and PGP signatures
+  and DKIM body hashes, and it would put MIME rewriting, the riskiest edit there is, in the
+  delivery path ([ADR-0013](decisions/0013-sieve-acts-only-on-vouched-headers.md)). Webmail shows a
+  banner from the API record; other clients get the Subject prefix, keywords, folders and the digest.
 
 ## API (sketch)
 
