@@ -1,0 +1,18 @@
+# Python packages of the lab, as measured on 2026-10-26 (docs/measurements/2026-10-26-lab-v0.md).
+# torch from the CPU wheel index:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1+cpu
+#   pip install -r lab/requirements.txt
+numpy==2.5.3
+scipy==1.18.1
+scikit-learn==1.9.1
+transformers==5.20.2
+tokenizers==0.23.3
+huggingface_hub==2.3.0
+safetensors==0.8.0
+sentence-transformers==6.2.0
+model2vec==0.10.0
+onnxruntime==1.29.0
+onnx==1.23.2
+onnxscript==0.7.2
+sentencepiece==0.2.2
+matplotlib==3.11.2

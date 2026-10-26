@@ -1,0 +1,60 @@
+{
+ "seed": 20261026,
+ "untroubled_cap": 1500,
+ "items": 9566,
+ "items_sha256": "3c7e24032304e4b4bfeb536a1063265e37403d71a9b645ad86533970e38c66b1",
+ "splits": {
+  "train": {
+   "n": 4599,
+   "by_slice_label": {
+    "modern_cross_source:junk": 727,
+    "modern_cross_source:legit": 576,
+    "sa:junk": 910,
+    "sa:legit": 1855,
+    "sa_hard_ham:legit": 137,
+    "synthetic_nl:junk": 144,
+    "synthetic_nl:legit": 250
+   },
+   "split_sha256": "b3719f4c2e8657b95d644c422ca5cd086734d5435d1ee8f6b83bede02394f47f"
+  },
+  "calib": {
+   "n": 1525,
+   "by_slice_label": {
+    "modern_cross_source:junk": 233,
+    "modern_cross_source:legit": 192,
+    "sa:junk": 303,
+    "sa:legit": 625,
+    "sa_hard_ham:legit": 39,
+    "synthetic_nl:junk": 48,
+    "synthetic_nl:legit": 85
+   },
+   "split_sha256": "5b71d4694b8d7d01f4859893c7667ae26e950d7fffa994df3806c7619a0882b6"
+  },
+  "dev": {
+   "n": 1528,
+   "by_slice_label": {
+    "modern_cross_source:junk": 240,
+    "modern_cross_source:legit": 192,
+    "sa:junk": 303,
+    "sa:legit": 615,
+    "sa_hard_ham:legit": 49,
+    "synthetic_nl:junk": 48,
+    "synthetic_nl:legit": 81
+   },
+   "split_sha256": "7ed8f1a160ee765d616cb413eaa72f4cd6c64de54b8338c386520a220e85f0be"
+  },
+  "sealed": {
+   "n": 1914,
+   "by_slice_label": {
+    "modern_cross_source:junk": 300,
+    "modern_cross_source:legit": 240,
+    "sa:junk": 380,
+    "sa:legit": 805,
+    "sa_hard_ham:legit": 25,
+    "synthetic_nl:junk": 60,
+    "synthetic_nl:legit": 104
+   },
+   "split_sha256": "baa2c77ffeb92ab7fe776cf6d7d59e99e9a7f8d6f1b64b04263ae48d711f60af"
+  }
+ }
+}

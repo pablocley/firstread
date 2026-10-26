@@ -1,0 +1,19 @@
+{
+ "embedder": "e5-small",
+ "hf": "intfloat/multilingual-e5-small",
+ "pad_token": "<pad>",
+ "tokenizer_sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39",
+ "exporter": "torch 2.14.1+cpu torch.onnx.export(dynamo=True); onnxruntime 1.29.0 quantize_dynamic QInt8",
+ "files": {
+  "fp32": {
+   "file": "model-fp32.onnx",
+   "sha256": "a76535d78e2489394696b7b5634df94e6c2eb628d410e012345b91c6a3023213",
+   "bytes": 470982694
+  },
+  "int8": {
+   "file": "model-int8.onnx",
+   "sha256": "bbe9a2d4c4d40aca342d9ba528febb16d7dba3b708342c26a2f509c98c692d50",
+   "bytes": 118521844
+  }
+ }
+}
