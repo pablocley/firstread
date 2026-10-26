@@ -18,8 +18,8 @@ Checked against the repository at commit `228791f` (2026-03-25), MIT licensed:
 | `program.md`: instructions, edited by the human | [`lab/program.md`](../lab/program.md), edited by the human |
 | fixed 5-minute training budget | fixed wall-clock budget per experiment, set in the cost table |
 | one metric, `val_bpb`, lower is better | one scalar, **cost per 1,000 messages** on the dev split, lower is better, plus hard gates (section 5) |
-| keep if strictly better, else `git reset` | keep only if better **beyond noise** (paired bootstrap on quality, repeated runs on latency) and every gate passes |
-| `results.tsv`, untracked | `results.tsv` and `pareto.tsv`, untracked |
+| keep if strictly better, else `git reset` | keep only if quality, latency or footprint is better **beyond noise** and none is worse (paired bootstrap on quality, an interleaved timing pass on latency and footprint), and every gate passes |
+| `results.tsv`, untracked | `results.tsv` and `pareto.tsv`, untracked during the run, committed under `lab/results/<tag>/` when the tag ends |
 | simplicity criterion | the same: equal score with less complexity is a win |
 | never stop | the same |
 
@@ -96,12 +96,21 @@ none. It has to come from section 3.2.
 
 ## 4 · The blind test
 
-- The sealed split lives outside the agent's workspace. Only the scorer process can read it.
-- The agent never sees its messages, labels or per-message results. It receives one coarse answer
-  per query: whether the candidate beats the current champion on the sealed split, and the
-  rounded cost.
-- Sealed queries are rationed (a fixed number per run tag, set in the cost table) and every query
-  is logged, so the number of looks is known when a result is judged.
+- The sealed split lives in the lab data directory (`<lab_data>/sealed/`), outside the repository
+  and outside the splits the loop reads. Only the harness reads it. Not built yet: a separate Unix
+  user for the scorer. Today the agent and the harness run as the same user, so the split is blind
+  by rule and by what the harness returns, not by file permissions.
+- The agent never sees its messages, labels or per-message results. `run.py --sealed` returns
+  aggregates only: cost per 1,000, false-positive and false-negative counts, cost per slice, and
+  the λ sweep (counts per λ). Records and message ids go to `<lab_data>/sealed/runs/<tag>-<n>/`.
+  Not built yet: comparing with the champion on the sealed split in the same query.
+- Sealed queries are rationed (`sealed_queries_per_tag` in the cost table). The harness counts
+  them per run tag in `<lab_data>/sealed/queries.log` before it runs and refuses past the ration,
+  so the number of looks is known when a result is judged.
+- One lapse, recorded: the first query (tag `oct26b`) ran before the harness held per-message
+  output back, and printed the ids of the three sealed false positives. The ids were removed from
+  the run directory and the log; nobody opened those messages, and nothing was changed after the
+  query.
 - The sealed split is refreshed from newly captured mail, which keeps it newer than everything the
   agent tuned on.
 - A lab result is a candidate, not a release. Release goes through champion / challenger on platform
@@ -114,24 +123,29 @@ the cost table (`lab/cost.toml`). Missing a fraudulent IBAN change and filing a 
 invoice in Junk are both expensive; a newsletter left in the inbox is cheap. The costs are product
 decisions set by a person before the first run; the harness refuses to start while any is unset.
 
-Hard gates. A candidate that fails any one is discarded, whatever its cost:
+Three axes decide a keep (owner, 2026-10-26): **quality** (that cost), **latency** (wall time per
+email through the real filter, with the model computing every vector) and **footprint** (CPU time
+per email and peak memory of daemon plus sidecar). A run is kept when at least one axis is better
+beyond noise and none is worse; a trade (better here, worse there) is never kept, only recorded.
 
-| gate | rule |
-|---|---|
-| hard negatives | no new false positive on the veto set |
-| latency | p99 of the inline path within the budget, measured on the reference machine |
-| calibration | expected calibration error per head within the limit |
-| slices | no slice worse than the champion beyond its tolerance |
-| memory | resident memory within the limit |
-| data rules | every provider allowed to see every input it saw (section 6) |
+How each axis is measured and judged, with the tolerances in the `[keep]` section of `lab/cost.toml`:
 
-Noise: quality differences count only if a paired bootstrap over dev messages puts the cost
-difference below zero with 95% confidence; latency counts only outside the spread of repeated
-baseline runs on the same machine. Results from different machines are never compared.
+| axis | measurement | improve | worse |
+|---|---|---|---|
+| quality | paired bootstrap over primary dev messages of the cost difference against the champion | CI95 below 0 | any legitimate message newly in Junk (any slice), a slice significantly worse, CI95 above 0, or a point difference above the tolerance |
+| latency | timing pass: champion and run, each with a no-cache sidecar and a daemon, get the same 200 dev messages interleaved; ratio of mean filter wall times, bootstrap CI95 | CI95 below 1 and ratio at most 0.95 | CI95 above 1, or ratio at least 1.05 |
+| footprint | CPU per email (filter, daemon, sidecar), same pass; peak resident memory of sidecar plus daemon | CPU as latency, or memory at most 0.95 of the champion's, and neither worse | CPU as latency, or memory at least 1.03 of the champion's |
 
-`pareto.tsv` records cost, p99 latency and memory for every run that passed the gates, per
-provider and precision. That table answers "which classifier gives the best quality for its
-latency"; the keep rule only answers "is this better than what we have".
+Gates, failing any one discards: the invariants of [12](12-interfaces.md) section 5, records
+complete, data rules (every provider allowed to see every input it saw, section 6), decisions
+computed live in the timing pass equal to those from the cached vectors, and quality not worse than
+the tag's baseline (so a chain of "equal" steps cannot drift). If other processes take more than
+0.15 of a core during the timing pass, latency and CPU are unmeasured and the run is repeated.
+Results from different machines are never compared.
+
+`pareto.tsv` records cost, latency, CPU and memory for every run that passed the gates, per
+provider configuration, kept or not. That table answers "which classifier gives the best quality
+for its latency and footprint"; the keep rule only answers "is this better than what we have".
 
 ## 6 · What the agent may change
 
@@ -159,6 +173,20 @@ per-user folders give real filing habits to test the folder-habit learner agains
 
 ## 8 · Status
 
-Designed, not built. [`lab/build-prompt.txt`](../lab/build-prompt.txt) is the goal prompt for the
-coding agent that builds it; [`lab/program.md`](../lab/program.md) is what the research agent reads
-once it exists.
+Built and run on 2026-10-26: tag `oct26` (quality keep rule) and tag `oct26b` (the three-axis rule
+of section 5), L2 on Dovecot 2.3.21 for the cases of [12](12-interfaces.md) section 7, one sealed
+query. Results: [measurements/2026-10-26-lab-v0.md](measurements/2026-10-26-lab-v0.md),
+[measurements/2026-10-26-lab-pareto-loop.md](measurements/2026-10-26-lab-pareto-loop.md),
+[`lab/results/`](../lab/results/); decisions: [ADR-0017](decisions/0017-lab-v0-choices.md).
+Reproduce: [`lab/README.md`](../lab/README.md).
+
+Built: fetch (sha256-checked archives, pinned lore commits, pinned model revisions), prepare
+(checked against `lab/data/`), render, the harness with the timing pass and the sealed-query
+ration and log, the scorer, the hash lock, the sidecar (four embedders; torch, ONNX Runtime or
+numpy; fp32 or int8; per-space cache), ONNX export with a parity check, the heads script, the loop
+helpers, the L2 setup.
+
+Not built yet: recorded lookups and the simulated clock and mailboxes (section 2), the learning
+test (section 7), L3 shadow beyond `firstreadd --shadow`, a separate Unix user for the sealed
+split and a champion comparison inside a sealed query (section 4). The only within-source labelled
+data is English from 2002 to 2005.
