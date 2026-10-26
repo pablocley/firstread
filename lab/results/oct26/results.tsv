@@ -24,5 +24,5 @@ bdee30d	103.41	na	na	na	pass	discard	threshold 0.98 (information): FP 0 FN 124 d
 176a66b	83.76	na	na	na	pass	discard	threshold 0.97 (information): FP 0 FN 103 delta CI95 [-50.67218200620476, -26.88728024819028]
 0cb7239	280.25	na	na	na	fail:hard_negatives	discard	threshold 0.95 (information): FP 2 FN 83 delta CI95 [-55.84281282316442, 473.6297828335057]
 ab55357	359.88	na	na	na	fail:hard_negatives	discard	threshold 0.90 (information): FP 3 FN 54 delta CI95 [-74.45708376421923, 645.2947259565667]
-eeded040c	116.86	1.83	0.013	39.6	pass	discard	mmbert-small head instead of e5: CI95 [-19.6,+8.3] not significant; synthetic_nl slice worse (108.5 vs 62.0)
+eed040c	116.86	1.83	0.013	39.6	pass	discard	mmbert-small head instead of e5: CI95 [-19.6,+8.3] not significant; synthetic_nl slice worse (108.5 vs 62.0)
 ec0ccaa	126.16	2.16	0.017	39.7	pass	discard	combiner trained on SA slices only (information): CI95 [0,+9.3] on SA, so the cross-source rows do not distort the primary; modern slice 342.6 without auth/list facts
