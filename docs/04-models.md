@@ -62,6 +62,32 @@ Conclusions, in order of importance:
 3. **Per-question decoder passes do not fit the delivery path.** One read per question is too
    expensive on CPU. Read the message once, answer many questions.
 
+### The first lab loop (2026-10-26)
+
+Full numbers: [measurements/2026-10-26-lab-v0.md](measurements/2026-10-26-lab-v0.md); decisions:
+[ADR-0017](decisions/0017-lab-v0-choices.md). Through the real filter and daemon, scored by cost
+(a legitimate message in Junk costs 100, spam in the inbox 1) on the SpamAssassin corpus, the only
+within-source labelled data available (English, 2002 to 2005):
+
+| configuration | cost / 1,000 | spam caught | legitimate in Junk |
+|---|---|---|---|
+| tier 0 only (32 deterministic facts) | 414.7 | 102 / 303 | 2 |
+| tier 0 + potion head (after the IBAN fix) | 134.4 | 173 / 303 | 0 |
+| **tier 0 + multilingual-e5-small head (v0 choice)** | **122.0** | **185 / 303** | **0** |
+| tier 0 + mmBERT-small head | 116.9, not different beyond noise | 190 / 303 | 0 |
+
+What it settles: an embedding head on top of the deterministic facts more than halves the cost;
+e5-small beats potion beyond noise; the cost-derived threshold (0.990) is kept over a dev-tuned
+one. The second loop, with the owner's three-axis rule (keep only if quality, latency or footprint
+improves and none gets worse), then moved the same model to ONNX Runtime int8 at 192 tokens with a
+SentencePiece tokenizer at equal quality (latency ×0.36, CPU ×0.35, memory ×0.35), and an L1
+combiner cut dev cost from 122 to 85 per 1,000. On the one sealed query the champion scored 350
+per 1,000, three of 25 hard-ham messages in Junk; the starting point is not scored there yet
+([measurements/2026-10-26-lab-pareto-loop.md](measurements/2026-10-26-lab-pareto-loop.md)).
+What it does not settle: anything about Dutch mail, phishing or fraud, because no labelled data for
+them exists here yet. A plain bag-of-words n-gram head ranks this old English mail better
+than every embedder (AUC 0.993 against 0.987 for e5) and is the baseline to beat on Dutch data.
+
 ## The plan: two forms of System 1
 
 ### Tier 1: one embedding, many calibrated heads

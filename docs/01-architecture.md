@@ -15,7 +15,7 @@ is a verdict and a bounded edit list, never a new message.
               │                                    │              │  ▲            │
               (B) milter, optional                 │     (G) events│  │(C) keyword  │(D) Junk moves
               │                                    ▼              ▼  │   updates    ▼
-              └────────────────────────────────────► firstreadd ◄────────┴──────────────┘
+              └────────────────────────────────► firstreadd ◄────────┴──────────────┘
                                                   │  ▲   │
                          stamp at delivery ◄──────┘  │   └──► (F) API ─► webmail, digest, admin
                                                      │
@@ -44,10 +44,10 @@ documentation; 2.4 changed configuration syntax): the event list, and the Sieve 
 
 ## Three tiers at delivery
 
-| tier | when | what | cost so far ([measurements](measurements/2026-10-26-cpu-baseline.md), 2 vCPU sandbox, eager PyTorch) |
+| tier | when | what | cost so far (2 vCPU cloud VM; [CPU baseline](measurements/2026-10-26-cpu-baseline.md), [lab loop](measurements/2026-10-26-lab-pareto-loop.md)) |
 |---|---|---|---|
-| **0 · deterministic** | every message, inline | parse, authenticate, extract, look up sender relationship and reputation counters, fingerprint content, check the content cache | static embedding 1.3 ms; the rest is parsing and cached lookups, to be measured |
-| **1 · small models** | once per *unique content* (cache hit for copies), inline with a deadline, else completed after delivery | one multilingual embedding, then calibrated heads (global plus personal residuals) and the mailbox's exemplar memory | embedding 177–778 ms per unique message eager; ONNX int8 on production CPUs not yet measured |
+| **0 · deterministic** | every message, inline | parse, authenticate, extract, look up sender relationship and reputation counters, fingerprint content, check the content cache | whole delivery path with tier 0 only (filter process, daemon): 5.3 ms per email, 2.3 ms CPU, 5 MB; with recorded DNS lookups not yet measured |
+| **1 · small models** | once per *unique content* (cache hit for copies), inline with a deadline, else completed after delivery | one multilingual embedding, then calibrated heads (global plus personal residuals) and the mailbox's exemplar memory | whole path with multilingual-e5-small, ONNX Runtime int8, 192 tokens, no cache: 33 ms mean (p99 56 ms) per email, 53 ms CPU, 385 MB; eager PyTorch fp32 was 92 ms; production CPUs not yet measured |
 | **2 · decision model** | asynchronous only | JEV-style typed decisions for unsure cases, user rules, campaign confirmation, OCR of image-only lures | ≈ 2.1 s per question for a 0.8B model eager; GGUF / GPU not yet measured |
 
 The stamp records which tiers completed (`tiers=0,1`). Anything late arrives through hook C.
