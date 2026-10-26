@@ -56,6 +56,7 @@ newsletters you never read, forwarded chains, and every flavour of scam.
 | links | count, domains, text vs target mismatch, shorteners, IP literals, URL domain age, links hosted on large legitimate platforms (shared documents, e-signature) |
 | **QR codes** | decoded from images and PDF attachments; treated as links (QR phishing has no visible URL) |
 | visible vs hidden text | text as rendered; ratio of hidden text, zero-width and homoglyph characters |
+| instructions to an AI | `noul` head: the message addresses an AI assistant or agent (orders to ignore instructions, hidden requests to summarise, forward or fetch); with hidden text, it drives the safety block AI clients receive ([15](15-ai-native-clients.md) section 5) |
 | attachments | type by content, double extensions, macros, HTML attachments (local phishing pages), encrypted archives with the password in the body, executables, size |
 | image-only or PDF-only lure | flagged in tier 0; OCR in tier 2 only when other signals are suspicious |
 | list facts | `List-Unsubscribe`, one-click (RFC 8058), `List-Id` |

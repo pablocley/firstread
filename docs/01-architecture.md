@@ -98,7 +98,7 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 
 | crate | responsibility |
 |---|---|
-| `firstread-core` | the contract: mail state, scopes, signals, typed decisions, verdicts, feedback, events, the stamp |
+| `firstread-core` | the contract: mail state, delivery context, scopes, signals, typed decisions, providers, the directive, verdicts, feedback, events, the stamp |
 | `firstread-parse` | hostile MIME to a normalised `MailState`, visible text, links, attachments, QR codes |
 | `firstread-auth` | SPF, DKIM 1 and 2, DMARC, ARC, `Authentication-Results` |
 | `firstread-net` | DNS, DNSBL, MTA-STS / DANE / TLS-RPT, RDAP, caches |
@@ -114,7 +114,7 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 | `firstreadd` | the daemon: sockets, API, tier scheduling, queues, load shedding, metrics |
 | `firstread-filter` | the delivery-time client Dovecot runs; fails open |
 | `firstread-milter` | Postfix milter front-end |
-| `firstread` | CLI: inspect, stamp, replay, evaluate |
+| `firstread` | CLI: inspect, stamp, replay, evaluate, and the lab ([13](13-lab.md)) |
 
 Library crates know nothing about sockets, Dovecot or Postfix. Every signal is testable on one
 `.eml`; every learner is testable on a recorded event log.

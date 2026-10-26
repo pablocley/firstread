@@ -131,6 +131,10 @@ set and meets the latency target on production hardware.
 
 ## Runtime
 
+- Every model below is a **provider** behind one contract ([14 · Providers](14-providers.md)):
+  deciders answer many typed questions per call and return logits, calibration per (release,
+  question) turns them into decisions, embedders tag vectors with their space. Which provider wins
+  is decided in the lab ([13 · Lab](13-lab.md)), not by its model card.
 - Inference in-process in Rust with the [`ort`](https://docs.rs/crate/ort/latest) crate (wraps
   ONNX Runtime 1.28; still `2.0.0-rc.13`, so pin the exact version), tokenisation with the Rust
   `tokenizers` crate. `ort` is the ONNX path of Hugging Face's Text Embeddings Inference and of

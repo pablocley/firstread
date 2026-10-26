@@ -2,7 +2,9 @@
 
 What a client receives and through which channel. Reuse what clients already understand; add our
 own only where nothing exists; never require a plugin for the basics. How these channels are used
-for different kinds of users is in [09-experience.md](09-experience.md).
+for different kinds of users is in [09-experience.md](09-experience.md); what an AI-native client
+gets, and why it does no filing, tagging or search indexing of its own, is in
+[15 · AI-native clients](15-ai-native-clients.md).
 
 ## Channels
 
@@ -117,7 +119,8 @@ User scope authenticates with the mailbox's own credentials; admin and organisat
 | `GET/PUT /v1/mailboxes/{m}/settings` | mode, digest frequency, language, scope sharing, off switch |
 | `POST /v1/mailboxes/{m}/rules` | natural-language rules ("tag customer refund requests as Retour") |
 | `POST /v1/check-draft` | pre-send checks |
-| `GET /v1/search` | semantic search within the mailbox |
+| `GET /v1/search` | hybrid search (lexical, semantic, facets) over received and sent mail and attachment text, with IMAP's access control ([15](15-ai-native-clients.md) section 3) |
+| `GET /v1/views`, `GET /v1/messages/{id}/context` | server-defined views; thread context for drafting ([15](15-ai-native-clients.md)) |
 | `GET /v1/me/export`, `DELETE /v1/me/learning` | everything firstread learned about this mailbox, and erasing it |
 
 ## Client capability matrix (measure; do not assume)

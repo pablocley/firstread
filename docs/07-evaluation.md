@@ -1,7 +1,9 @@
 # 07 · Evaluation
 
 Nothing ships on someone else's model card. Every model, learner and threshold is accepted on our
-own data, on our own hardware, and the learning claim is tested like any other.
+own data, on our own hardware, and the learning claim is tested like any other. The machinery that
+runs all of this (mock instance, data sources and their terms, sealed blind test, the improvement
+loop) is the lab: [13 · Lab](13-lab.md).
 
 ## Evaluation sets
 
