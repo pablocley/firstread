@@ -17,6 +17,18 @@ learns continuously from how people treat their mail. Start with `README.md`, th
 
 - Fail open: no path may lose, bounce or indefinitely delay mail because firstread failed. Every
   inline step has a deadline. Fail-open is counted and alerted on.
+- Output is a verdict plus an edit list (`firstread-core::directive`), never a new message. Only
+  `firstread-filter`'s `edit::apply` writes message bytes, only in the header block, and its
+  byte-identical-body test must keep passing. No body banners, no attachment stripping.
+- Every header value goes through the validating constructors; nothing from a message reaches a
+  header without `HeaderValue::from_text`.
+- No header in firstread's namespace that arrived with a message survives the filter, on any path
+  that writes output. The Sieve scripts act on firstread headers only after the filter vouched for
+  the message, map folder keys to literal `fileinto`s, and file only after the user's own rules
+  (docs/12-interfaces.md section 4.1.1).
+- firstread's own writes (delivery keywords, hook C updates, its Sieve filing) are never feedback.
+- Every decision input is in the record (message, delivery context, snapshot, recorded lookups,
+  config): no hidden inputs, so any decision can be replayed (docs/12-interfaces.md).
 - Identity and authentication are deterministic code, never a model output.
 - Never fetch URLs found in mail; never execute attachments.
 - No customer mail in the repository, fixtures, logs above debug level, model hubs, external APIs

@@ -1,8 +1,10 @@
 //! The shared contract every other firstread crate speaks.
 //!
+//! - [`context`]: the delivery context from the host (who it is for, how it arrived).
 //! - [`mail`]: the normalised view of one message as delivered to one mailbox.
 //! - [`decision`]: typed questions and calibrated answers (`noul`, `choice`, `score`), the same
 //!   contract for every model tier.
+//! - [`directive`]: the only synchronous output: validated header edits, keywords, folder.
 //! - [`scope`]: mailbox, organisation, platform, commons, and what may cross between them.
 //! - [`signal`]: one fact about a message, with its scope and the tier that produced it.
 //! - [`verdict`]: the few user-facing conclusions, each a probability with reasons.
@@ -11,7 +13,9 @@
 //! - [`stamp`]: what gets written into and onto the message, and keyed for the API.
 //! - [`tier`]: cost tiers and deadlines.
 
+pub mod context;
 pub mod decision;
+pub mod directive;
 pub mod event;
 pub mod feedback;
 pub mod mail;

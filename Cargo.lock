@@ -44,6 +44,9 @@ dependencies = [
 [[package]]
 name = "firstread-filter"
 version = "0.0.0"
+dependencies = [
+ "firstread-core",
+]
 
 [[package]]
 name = "firstread-graph"

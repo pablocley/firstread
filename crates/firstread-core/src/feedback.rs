@@ -34,7 +34,7 @@ pub enum Action {
     Read,
     /// Deleted without reading.
     DeletedUnread,
-    /// One-tap verdict from a banner, the digest or webmail.
+    /// One-tap verdict from a webmail banner or the digest.
     Verdict {
         /// Which verdict the user judged.
         kind: VerdictKind,

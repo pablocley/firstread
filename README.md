@@ -8,6 +8,10 @@ known about it: who really sent it, whether it is safe, what kind of mail it is,
 you, and what the rest of your mailbox, your organisation and the whole platform already know
 about it.
 
+In: the message plus its delivery context (recipient, envelope sender, trusted transport facts).
+Out: a verdict and a small, validated edit list the mail system applies (headers, keywords, folder),
+plus a full record for the API. Never a rewritten message: the body is never touched.
+
 It learns from day one. Every move to Junk, every reply, every tag a user removes teaches it,
 privately, at the right scope: the mailbox, the organisation, the platform, and (optionally)
 other firstread deployments through a shared threat commons.
@@ -33,6 +37,7 @@ Design phase. Nothing here filters mail yet.
 | [09 · Experience](docs/09-experience.md) | how different people use mail, and what each of them sees |
 | [10 · Commons](docs/10-commons.md) | learning across servers: what is shared, how, and what never is |
 | [11 · Scale](docs/11-scale.md) | volume, compute per unique content, sharding, degradation |
+| [12 · Interfaces](docs/12-interfaces.md) | exactly what goes in (message plus delivery context) and what comes out (verdict plus edit list, record, events), mapped to milter, Rspamd, SpamAssassin and Sieve |
 | [decisions/](docs/decisions/) | architecture decision records |
 | [measurements/](docs/measurements/) | numbers measured so far, with the scripts that produced them |
 

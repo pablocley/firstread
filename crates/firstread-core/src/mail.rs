@@ -2,21 +2,9 @@
 //!
 //! Produced by `firstread-parse`; read by every signal. Holds metadata and extracted text, never
 //! the raw bytes' interpretation decisions: anything uncertain is left empty, not guessed.
-
-use std::net::IpAddr;
-
-/// The SMTP envelope, as seen by our own MTA.
-#[derive(Debug, Clone, Default)]
-pub struct Envelope {
-    /// MAIL FROM (empty for bounces).
-    pub mail_from: String,
-    /// The recipient this delivery is for (one mailbox per delivery).
-    pub rcpt_to: String,
-    /// Connecting client IP, if known from our own Received header or the MTA.
-    pub client_ip: Option<IpAddr>,
-    /// HELO / EHLO name.
-    pub helo: Option<String>,
-}
+//!
+//! Envelope and transport facts are not here: they come from the host, in
+//! [`crate::context::DeliveryContext`], because the message cannot be trusted to state them.
 
 /// An address with its display name, as written in the header.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -52,8 +40,6 @@ pub struct Attachment {
 /// One message, for one mailbox.
 #[derive(Debug, Clone, Default)]
 pub struct MailState {
-    /// SMTP envelope.
-    pub envelope: Envelope,
     /// From header.
     pub from: Option<NamedAddress>,
     /// Reply-To header.

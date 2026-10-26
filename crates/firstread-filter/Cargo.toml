@@ -9,5 +9,8 @@ publish.workspace = true
 name = "firstread-filter"
 path = "src/main.rs"
 
+[dependencies]
+firstread-core.workspace = true
+
 [lints]
 workspace = true

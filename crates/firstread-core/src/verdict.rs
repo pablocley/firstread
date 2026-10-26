@@ -2,7 +2,8 @@
 
 use crate::signal::ReasonKey;
 
-/// The user-facing conclusions. Each maps to keywords, folders or banners by threshold.
+/// The user-facing conclusions. Each maps to keywords, a folder key, a Subject prefix or a
+/// webmail banner by threshold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VerdictKind {
     /// Credential harvesting, fake login, fake payment page.
