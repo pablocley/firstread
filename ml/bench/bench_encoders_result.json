@@ -1,0 +1,28 @@
+{
+ "mmbert_small_fwd_256tok_ms": 290.9,
+ "mmbert_small_fwd_512tok_ms": 397.5,
+ "e5_small_512tok_ms": 176.7,
+ "e5_sims": {
+  "nl_inv~en_inv": 0.9065538644790649,
+  "nl_inv~nl_news": 0.8127477765083313,
+  "nl_bec~en_bec": 0.9173394441604614,
+  "nl_bec~nl_inv": 0.8738473057746887
+ },
+ "harrier270m_512tok_ms": 2253.3,
+ "harrier_dim": 640,
+ "harrier_sims": {
+  "nl_inv~en_inv": 0.8436986207962036,
+  "nl_inv~nl_news": 0.619901716709137,
+  "nl_bec~en_bec": 0.7410846948623657,
+  "nl_bec~nl_inv": 0.7004072666168213
+ },
+ "potion_ml_ms": 1.294,
+ "potion_dim": 256,
+ "potion_sims": {
+  "nl_inv~en_inv": 0.6162868738174438,
+  "nl_inv~nl_news": 0.23334921896457672,
+  "nl_bec~en_bec": 0.6107365489006042,
+  "nl_bec~nl_inv": 0.275040864944458
+ },
+ "threads": 2
+}
