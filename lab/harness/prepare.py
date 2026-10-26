@@ -9,7 +9,8 @@ split under <lab-data-dir>/sealed. Splits are by time first (the newest 20% of e
 class go to sealed), then by near-duplicate cluster (simhash), so copies never straddle splits.
 
 lab/data/untroubled.txt lists the untroubled messages taken (the October archive keeps growing),
-so the sample does not depend on when the archive was fetched. lab/data/manifest.json holds a hash
+so the sample does not depend on when the archive was fetched; paths that differ only in the
+number before `.txt` share a line, as `prefix_{1,5,9}.txt`. lab/data/manifest.json holds a hash
 over every message (origin and sha256 after normalisation) and one per split (ids, labels, slices,
 message hashes; no local paths), so two machines can compare them; prepare refuses any difference
 and writes <lab-data-dir>/items.tsv to find it. --write-reference writes both reference files from
@@ -20,6 +21,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 from email.parser import BytesHeaderParser
@@ -102,10 +104,31 @@ def clusters(hashes):
     return [u.find(i) for i in range(len(hashes))]
 
 
+def expand(line):
+    m = re.match(r"^(.*)\{([^}]*)\}(.*)$", line)
+    return [m.group(1) + x + m.group(3) for x in m.group(2).split(",")] if m else [line]
+
+
+def compact(paths):
+    """Paths that differ only in the number before `.txt` on one line: `prefix_{1,5,9}.txt`."""
+    groups = {}
+    for p in sorted(paths):
+        m = re.match(r"^(.*_)(\d+)(\.txt)$", p)
+        key = (m.group(1), m.group(3)) if m else (p, None)
+        groups.setdefault(key, []).append(m.group(2) if m else None)
+    out = []
+    for (head, tail), ns in groups.items():
+        if tail is None:
+            out.append(head)
+        else:
+            out.append(head + (ns[0] if len(ns) == 1 else "{" + ",".join(ns) + "}") + tail)
+    return out
+
+
 def reference():
     if not os.path.exists(REF_UNTROUBLED):
         return None
-    return {l.strip() for l in open(REF_UNTROUBLED) if l.strip() and not l.startswith("#")}
+    return {p for l in open(REF_UNTROUBLED) if l.strip() and not l.startswith("#") for p in expand(l.strip())}
 
 
 def collect(data, ref):
@@ -240,8 +263,9 @@ def main(data, write_reference=False):
     if write_reference:
         os.makedirs(os.path.dirname(REF_UNTROUBLED), exist_ok=True)
         with open(REF_UNTROUBLED, "w") as f:
-            f.write("# untroubled.org messages in the lab, by path inside lab-data/extract/untroubled (prepare.py)\n")
-            f.write("\n".join(sorted(it["orig"] for it in unique if it["source"] == "untroubled")) + "\n")
+            f.write("# untroubled.org messages in the lab, by path inside lab-data/extract/untroubled (prepare.py);\n"
+                    "# prefix_{1,5,9}.txt stands for prefix_1.txt, prefix_5.txt and prefix_9.txt\n")
+            f.write("\n".join(compact(it["orig"] for it in unique if it["source"] == "untroubled")) + "\n")
         json.dump(doc, open(REF_MANIFEST, "w"), indent=1)
         print("reference written: lab/data/untroubled.txt, lab/data/manifest.json")
     elif os.path.exists(REF_MANIFEST) and json.load(open(REF_MANIFEST)) != doc:
