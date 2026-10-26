@@ -1,9 +1,14 @@
-"""L2: deliver over real Dovecot LMTP with the global Sieve scripts and read back what was stored."""
+"""L2: deliver over real Dovecot LMTP with the global Sieve scripts and read back what was stored.
+
+Run lab/l2/setup.sh first (as root). Tier 0 only, with the hand-set fixture combiner in
+lab/l2/combiner.json, so the result does not depend on any lab training run.
+"""
 import os, re, subprocess, sys, time
 
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 CONF = "/srv/l2/dovecot.conf"
 D = ["doveadm", "-c", CONF]
-DAEMON = ["/home/claude/firstread/target/release/firstreadd", "--socket", "/srv/l2/run/firstread.sock",
+DAEMON = [os.path.join(REPO, "target", "release", "firstreadd"), "--socket", "/srv/l2/run/firstread.sock",
           "--combiner", "/srv/l2/combiner.json", "--deployment", "lab-l2", "--mac-key", "l2-test-key",
           "--junk-threshold", "0.9900990099009901", "--data-class", "public"]
 

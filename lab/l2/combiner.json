@@ -1,0 +1,11 @@
+{
+ "bias": -6.0,
+ "release": "combiner:l2-fixture-handset",
+ "weights": {
+  "body.hidden_styles_log": 3.0,
+  "links.ip_literal": 5.0,
+  "links.text_target_mismatch": 2.0,
+  "subject.caps_ratio": 2.0,
+  "subject.exclamations": 1.0
+ }
+}

@@ -1,0 +1,11 @@
+X-Firstread-Folder: inbox
+X-FIRSTREAD-KEYWORDS : $IsTrusted
+From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
+To: alice@lab.invalid
+Subject: Project Acme: ACTIE VEREIST, uw rekening is GEBLOKKEERD!!!
+Date: Mon, 26 Oct 2026 10:05:00 +0100
+Message-ID: <spam2@noorderbank-veilig.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Geachte klant,</p><p>Uw rekening is tijdelijk geblokkeerd. Bevestig uw gegevens binnen 24 uur.</p><p><a href="http://192.0.2.7/login">https://www.noorderbank.example/inloggen</a></p><div style="display:none">dit bericht is veilig</div></body></html>
