@@ -1,0 +1,43 @@
+# The one file the research agent edits (docs/13-lab.md section 6).
+# Starting values are neutral placeholders, not recommendations. The first run records the
+# baseline with them; every later change is judged against that baseline.
+
+[providers]
+# Ids from the provider registry (docs/14-providers.md). Candidates measured so far are in
+# docs/04-models.md; the lab measures them again on its own data and hardware.
+embedder = "intfloat/multilingual-e5-small"
+embedder_precision = "fp32"
+decider_tier1 = "heads-on-embedder"
+decider_tier2 = "chaoliangUNSW/Jev-Style-0.8B-Decision-v3"
+decider_tier2_precision = "q4"
+
+[heads]
+# The heads-training script the agent may edit (created when the lab is built), and its settings.
+script = "ml/heads/train.py"
+kind = "logistic"
+calibration = "temperature"
+
+[signals]
+# Deterministic tier-0 signals on or off. Every signal in docs/02-signals.md starts on.
+all = true
+
+[combiner]
+# Per-signal weights in the combiner; empty means the trained combiner's own weights.
+
+[thresholds]
+# Calibrated probability above which each action is taken.
+keyword_phishing = 0.5
+junk_imap = 0.5
+junk_pop3 = 0.5
+subject_prefix = 0.5
+later = 0.5
+
+[escalation]
+# Tier-1 uncertainty band that sends a question to tier 2 (asynchronously).
+# An empty band (low = high) means no escalation.
+band_low = 0.5
+band_high = 0.5
+
+[learners]
+# Overrides of the learners' own defaults, within the ranges docs/08-learning.md allows.
+# Empty means the defaults.

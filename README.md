@@ -12,6 +12,11 @@ In: the message plus its delivery context (recipient, envelope sender, trusted t
 Out: a verdict and a small, validated edit list the mail system applies (headers, keywords, folder),
 plus a full record for the API. Never a rewritten message: the body is never touched.
 
+Clients only read, post-process and draft. Filing, safety, tags and search are decided on the
+server, once, and an AI-native client gets them through the API ([15](docs/15-ai-native-clients.md)).
+Any System 1 model plugs in behind one contract ([14](docs/14-providers.md)), and the lab decides
+which one wins on quality, latency and cost ([13](docs/13-lab.md)).
+
 It learns from day one. Every move to Junk, every reply, every tag a user removes teaches it,
 privately, at the right scope: the mailbox, the organisation, the platform, and (optionally)
 other firstread deployments through a shared threat commons.
@@ -38,6 +43,9 @@ Design phase. Nothing here filters mail yet.
 | [10 · Commons](docs/10-commons.md) | learning across servers: what is shared, how, and what never is |
 | [11 · Scale](docs/11-scale.md) | volume, compute per unique content, sharding, degradation |
 | [12 · Interfaces](docs/12-interfaces.md) | exactly what goes in (message plus delivery context) and what comes out (verdict plus edit list, record, events), mapped to milter, Rspamd, SpamAssassin and Sieve |
+| [13 · Lab](docs/13-lab.md) | a mock instance fed exactly like production, public and own data, a sealed blind test, an autoresearch-style improvement loop |
+| [14 · Providers](docs/14-providers.md) | any System 1 model (JEV-style, encoder heads, future ones) behind one contract, with calibration and data rules |
+| [15 · AI-native clients](docs/15-ai-native-clients.md) | the server organises and searches; the client reads, post-processes and drafts; mail as untrusted input to an AI |
 | [decisions/](docs/decisions/) | architecture decision records |
 | [measurements/](docs/measurements/) | numbers measured so far, with the scripts that produced them |
 
@@ -47,6 +55,7 @@ Design phase. Nothing here filters mail yet.
 crates/      Rust workspace: daemon, delivery filter, milter, CLI, and the libraries behind them
 ml/          Python: distillation, training, calibration, evaluation, ONNX export, benchmarks
 fixtures/    test messages (synthetic or explicitly consented; never raw customer mail)
+lab/         the lab's experiment file, cost table, dataset manifest and agent instructions
 docs/        design, decisions, measurements
 ```
 

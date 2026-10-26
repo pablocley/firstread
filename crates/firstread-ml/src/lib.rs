@@ -1,4 +1,5 @@
-//! Models, all speaking the typed-decision contract in [`firstread_core::decision`].
+//! Models, all speaking the typed-decision contract in [`firstread_core::decision`], each a
+//! backend for the provider contract in [`firstread_core::provider`] (docs/14-providers.md).
 //!
 //! Responsibilities:
 //! - load model releases by manifest (sha256-pinned ONNX file, tokenizer, calibration file)

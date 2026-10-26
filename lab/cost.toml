@@ -1,0 +1,52 @@
+# Set by a person before the first run; the agent never edits this file (docs/13-lab.md section 5).
+# nan means "not set yet". The harness refuses to start while any value is nan.
+
+[run]
+experiment_budget_minutes = nan   # wall clock per experiment, training and evaluation included
+sealed_queries_per_tag = nan      # rationed looks at the sealed split
+reference_machine = ""            # CPU model and core count latency is measured on
+
+[gates]
+latency_p99_ms = nan              # inline path, per message, on the reference machine
+ece_max = nan                     # expected calibration error per head
+slice_tolerance = nan             # allowed worsening of cost_per_1k on any slice vs the champion
+memory_mb = nan                   # resident memory of the daemon
+
+# Cost of each action for each true class. Actions: inbox (no mark), inbox_marked (keyword or
+# Subject prefix), later, junk. Missing a fraud and junking a real invoice are both expensive;
+# the numbers are product decisions.
+[cost.phishing]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan
+
+[cost.fraud]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan
+
+[cost.junk]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan
+
+[cost.bulk_wanted]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan
+
+[cost.personal_or_business]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan
+
+[cost.machine]
+inbox = nan
+inbox_marked = nan
+later = nan
+junk = nan

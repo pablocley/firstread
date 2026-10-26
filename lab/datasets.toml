@@ -1,0 +1,83 @@
+# Every data source the lab may read, checked 2026-10-26 (docs/13-lab.md section 3).
+# use: "train" (training and evaluation), "eval" (evaluation only), "none" (do not use).
+# Data never enters this repository; the harness downloads it, records its sha256 and refuses
+# to run if a hash changes.
+
+[[source]]
+name = "untroubled-spam"
+url = "https://untroubled.org/spam"
+what = "spam received since 1998; yearly archives to 2025, monthly in 2026; updated daily"
+headers = "as received; most carry forged headers (per the page)"
+terms = "Permission is hereby granted to use this archive without restriction"
+language = "mostly English"
+use = "train"
+note = "the main receiving domain expired in April 2018 (per the page); check recent volume"
+
+[[source]]
+name = "lore-kernel"
+url = "https://kernel.org/lore.html"
+what = "public mailing-list archives, cloneable with git"
+headers = "full: Received, DKIM-Signature, ARC, Authentication-Results seen in October 2026 samples"
+terms = "none stated; authors keep copyright"
+language = "English, technical"
+use = "eval"
+note = "list mail only; never redistribute; Authentication-Results from the list server serve as recorded auth results"
+
+[[source]]
+name = "spamassassin-public"
+url = "https://spamassassin.apache.org/old/publiccorpus/readme.html"
+what = "6,047 messages incl. 250 hard_ham, assembled 2002 to 2006"
+headers = "all reproduced in full; some addresses obfuscated"
+terms = "no formal licence; copyright remains with the original senders"
+language = "English"
+use = "eval"
+note = "parser robustness and a classic regression slice; old"
+
+[[source]]
+name = "enron-cmu-2015"
+url = "https://www.cs.cmu.edu/%7E./enron/"
+what = "about 0.5M messages, organised per user with their folders"
+headers = "attachments removed, some addresses rewritten; transport headers not documented"
+terms = "no licence; made public by FERC; be sensitive to the privacy of the people involved"
+language = "English"
+use = "eval"
+note = "business ham and real folder habits for the week-one learning test; auth signals Unavailable"
+
+[[source]]
+name = "trec-2007"
+url = "https://plg.uwaterloo.ca/~gvcormac/treccorpus07/about.html"
+what = "75,419 messages (25,220 ham, 50,199 spam), April to July 2007"
+headers = "not stated"
+terms = "usage agreement: research and development only; no redistribution"
+language = "English"
+use = "eval"
+note = "only after a person accepts the agreement"
+
+[[source]]
+name = "phishing-pot"
+url = "https://github.com/rf-peixoto/phishing_pot"
+what = "12,271 real phishing .eml files, updated 2026-10-10"
+headers = "routing and authentication headers, completeness varies"
+terms = "CC BY-NC 4.0; dataset card forbids training and evaluation for commercial products without permission"
+language = "mixed"
+use = "none"
+note = "ask the maintainer for permission; until granted, do not use"
+
+[[source]]
+name = "meajor"
+url = "https://arxiv.org/html/2507.17978v2"
+what = "135,894 emails from Nazario, Nigerian fraud, TREC 2005 to 2007; processed, masked fields"
+headers = "none"
+terms = "not stated"
+language = "mixed"
+use = "none"
+
+[[source]]
+name = "own-capture"
+url = ""
+what = "mail of consenting mailboxes, captured at delivery with its context and lookups"
+headers = "exact"
+terms = "consent of the mailbox owner; stays in the local vault"
+language = "Dutch and others"
+use = "train"
+note = "the only source of Dutch personal and business mail with full headers"

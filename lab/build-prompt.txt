@@ -1,0 +1,25 @@
+GOAL
+Build the firstread lab: a mock instance that receives mail exactly as production does, decides with frozen state and recorded lookups, and scores every decision, so a research agent can improve firstread in the style of autoresearch. Done means the research-agent instructions in the lab folder can be followed end to end: a baseline run on public data produces a score, the gate results, a results line and a Pareto line, and a deliberately worse experiment is discarded.
+
+READ FIRST
+The repository's working rules, then the Lab, Providers, Interfaces, Evaluation and Learning design documents, and the lab folder (instructions, experiment file, cost table, dataset manifest). They are the specification. Where they are wrong or impossible, fix the document in the same change and say why.
+
+TRUTH RULES
+- Never state a number you did not measure. Every latency and quality figure comes from a run you can repeat, with machine, versions and data hashes recorded.
+- Do not assume the production stack. If something cannot be checked here (a container runtime, a Dovecot version, data access), record it as blocked with the reason and continue with what can be done.
+- Respect every dataset's terms exactly as the manifest records them. Download nothing marked "none". Accept no agreement on the owner's behalf. No mail ever enters the repository, logs above debug level, or an external API.
+- Never weaken a test, a gate or a data rule to make something pass.
+
+WHAT TO BUILD, in this order, each step working and tested before the next
+1. Implementations of the provider contract in the core crate: a deterministic baseline, one embedder backend, tier-1 heads with per-question calibration, and the data-rule check before every call.
+2. Dataset fetching and splitting per the manifest: recorded hashes, splits by time then by cluster, slices, and a sealed split the research agent cannot read.
+3. The L1 harness: the real filter and daemon binaries, the delivery context in the environment, the message on stdin as Dovecot sends it, a replay clock, recorded lookups only, simulated mailboxes.
+4. The scorer: cost per thousand messages from the cost table, every gate, a paired bootstrap for quality, repeated runs for latency, results and Pareto lines. It refuses to run while the cost table has unset values and tells the owner which ones.
+5. Protection of the read-only parts: a hash check that fails the run if anything other than the experiment file and the heads script changed.
+6. The L2 stack harness with real Dovecot, Pigeonhole and the two global Sieve scripts, if a container runtime is available. Use it to settle every item on the Interfaces document's verification list and write the outcomes back into that document.
+
+THE LOOP
+Work in small commits. After each step run everything: formatting, lints, all tests, a baseline lab run. Then ask what is weakest: an untested path, a slow step, a fidelity gap between the harness and real delivery, a gate that could be fooled. Fix the weakest thing, prove the fix with a test or a measurement, and repeat. Keep going until every step is done and two baseline runs on the same machine agree within the noise the scorer itself reports; then keep closing fidelity and speed gaps until you can show none remain that you know how to close. Do not stop to ask whether to continue. Stop only for a decision that belongs to the owner (cost values, accepting a dataset agreement, consent for capture mode), and list exactly what you need.
+
+REPORT
+At the end of each session: what works, the measured numbers and how they were measured, what is blocked and why, and the next weakest point.

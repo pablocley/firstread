@@ -27,6 +27,14 @@ learns continuously from how people treat their mail. Start with `README.md`, th
   the message, map folder keys to literal `fileinto`s, and file only after the user's own rules
   (docs/12-interfaces.md section 4.1.1).
 - firstread's own writes (delivery keywords, hook C updates, its Sieve filing) are never feedback.
+- Every model is a provider behind `firstread-core::provider`: logits become decisions only through
+  a fitted calibration, data rules are checked before every call, vectors never cross spaces.
+  Customer mail never reaches a remote provider or a model whose licence forbids commercial use.
+- The lab's harness, scorer, datasets, splits and cost table are read-only to the research agent;
+  only the experiment file and the heads script change in its loop. Nobody reads the sealed split.
+  Datasets are used only within the terms recorded in `lab/datasets.toml`.
+- Clients do not classify, file or index. Every message object an AI client receives carries the
+  safety block of docs/15-ai-native-clients.md section 5.
 - Every decision input is in the record (message, delivery context, snapshot, recorded lookups,
   config): no hidden inputs, so any decision can be replayed (docs/12-interfaces.md).
 - Identity and authentication are deterministic code, never a model output.

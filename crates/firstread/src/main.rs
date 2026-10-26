@@ -8,12 +8,14 @@
 //! - `firstread eval <fixtures dir>`: compare results against the `.labels.toml` files
 //! - `firstread replay <event log> --from <snapshot>`: re-run learners over recorded events; the
 //!   week-one, promotion and poisoning tests in docs/07-evaluation.md are built on this
+//! - `firstread lab <run|score|sealed>`: the lab of docs/13-lab.md: replay a dataset through the
+//!   real filter and daemon, score it against the cost table and gates, ask for the sealed verdict
 //!
 //! Status: not implemented.
 
 use std::process::ExitCode;
 
-const COMMANDS: [&str; 5] = ["inspect", "stamp", "check-draft", "eval", "replay"];
+const COMMANDS: [&str; 6] = ["inspect", "stamp", "check-draft", "eval", "replay", "lab"];
 
 fn main() -> ExitCode {
     let cmd = std::env::args().nth(1).unwrap_or_default();

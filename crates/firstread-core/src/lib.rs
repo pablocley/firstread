@@ -5,6 +5,8 @@
 //! - [`decision`]: typed questions and calibrated answers (`noul`, `choice`, `score`), the same
 //!   contract for every model tier.
 //! - [`directive`]: the only synchronous output: validated header edits, keywords, folder.
+//! - [`provider`]: the plug-in contract for System 1 models: deciders, embedders, calibration,
+//!   data rules.
 //! - [`scope`]: mailbox, organisation, platform, commons, and what may cross between them.
 //! - [`signal`]: one fact about a message, with its scope and the tier that produced it.
 //! - [`verdict`]: the few user-facing conclusions, each a probability with reasons.
@@ -19,6 +21,7 @@ pub mod directive;
 pub mod event;
 pub mod feedback;
 pub mod mail;
+pub mod provider;
 pub mod scope;
 pub mod signal;
 pub mod stamp;
