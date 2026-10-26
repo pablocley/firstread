@@ -15,7 +15,7 @@ is a verdict and a bounded edit list, never a new message.
               │                                    │              │  ▲            │
               (B) milter, optional                 │     (G) events│  │(C) keyword  │(D) Junk moves
               │                                    ▼              ▼  │   updates    ▼
-              └────────────────────────────────► firstreadd ◄────────┴──────────────┘
+              └────────────────────────────────────► firstreadd ◄────────┴──────────────┘
                                                   │  ▲   │
                          stamp at delivery ◄──────┘  │   └──► (F) API ─► webmail, digest, admin
                                                      │
@@ -83,7 +83,8 @@ Store choice: [ADR-0006](decisions/0006-central-store.md).
 | failure | behaviour |
 |---|---|
 | daemon unreachable, deadline exceeded, malformed or invalid reply | `firstread-filter` writes the original message with only foreign firstread headers removed and exits 0 |
-| filter cannot parse the message at all, crashes or is killed | exits non-zero; Pigeonhole keeps the message unchanged and the `filter` test is false; the `sieve_before` script deletes any directive headers a sender put in it |
+| filter cannot parse the message at all, declines or crashes | exits non-zero; Pigeonhole keeps the message unchanged and the `filter` test is false; the `sieve_before` script deletes any directive headers a sender put in it (verified on Dovecot 2.3.21 for exit 1) |
+| filter killed at `sieve_filter_exec_timeout` | on Dovecot 2.3.21 the LMTP process panics and the message is not stored; the filter's own deadline (default 2 s) exists so this never happens |
 | state store slow or down | deliver on tier 0 with local caches; mark `degraded`; finish later through hook C |
 | a learner produces a worse model | not promoted (champion / challenger on replay); if promoted and alarms fire, roll back to the previous snapshot |
 | model file missing or hash mismatch | that tier is skipped and the stamp says so |

@@ -30,7 +30,7 @@ Every provider ships a manifest; the registry is a data file.
 | languages | measured in the lab, not copied from a model card |
 | maximum input | the renderer truncates to it and records that it did |
 | prompt template (deciders) | how a typed question is put to this model; JEV-style models expect their own format |
-| space (embedders) | model, version, preprocessing and dimension; vectors from different spaces never meet |
+| space (embedders) | model and revision, input template, tokenizer and token limit, runtime and numeric format (fp32, int8), dimension; vectors from different spaces never meet |
 
 ## 3 · Calibration makes models interchangeable
 

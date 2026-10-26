@@ -17,6 +17,8 @@ learns continuously from how people treat their mail. Start with `README.md`, th
 
 - Fail open: no path may lose, bounce or indefinitely delay mail because firstread failed. Every
   inline step has a deadline. Fail-open is counted and alerted on.
+- `firstread-filter`'s own deadline stays well below `sieve_filter_exec_timeout`: on Dovecot 2.3.21
+  the LMTP process crashes and stores nothing when it has to kill the filter (docs/12-interfaces.md section 7).
 - Output is a verdict plus an edit list (`firstread-core::directive`), never a new message. Only
   `firstread-filter`'s `edit::apply` writes message bytes, only in the header block, and its
   byte-identical-body test must keep passing. No body banners, no attachment stripping.
