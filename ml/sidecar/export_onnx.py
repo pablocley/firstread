@@ -16,17 +16,17 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from providers import EMBEDDERS  # noqa: E402
+from providers import EMBEDDERS, resolve, snapshot  # noqa: E402
 
 name, root = sys.argv[1], sys.argv[2]
 e = EMBEDDERS[name]
 if e["kind"] != "meanpool":
     sys.exit(f"{name}: only mean-pooled transformer embedders are exported")
-from huggingface_hub import hf_hub_download  # noqa: E402
 from transformers import AutoModel, AutoTokenizer  # noqa: E402
 
-tok = AutoTokenizer.from_pretrained(e["hf"])
-model = AutoModel.from_pretrained(e["hf"], dtype=torch.float32, attn_implementation="eager").eval()
+local = snapshot(resolve(name))
+tok = AutoTokenizer.from_pretrained(local)
+model = AutoModel.from_pretrained(local, dtype=torch.float32, attn_implementation="eager").eval()
 
 
 class LastHidden(torch.nn.Module):
@@ -75,8 +75,8 @@ def sha(p):
     return h.hexdigest()
 
 
-manifest = {"embedder": name, "hf": e["hf"], "pad_token": tok.pad_token,
-            "tokenizer_sha256": sha(hf_hub_download(e["hf"], "tokenizer.json")),
+manifest = {"embedder": name, "hf": e["hf"], "revision": e["revision"], "pad_token": tok.pad_token,
+            "tokenizer_sha256": sha(os.path.join(local, "tokenizer.json")),
             "exporter": f"torch {torch.__version__} torch.onnx.export(dynamo=True); onnxruntime {ort.__version__} quantize_dynamic QInt8",
             "files": {"fp32": {"file": "model-fp32.onnx", "sha256": sha(fp32), "bytes": os.path.getsize(fp32)},
                       "int8": {"file": "model-int8.onnx", "sha256": sha(int8), "bytes": os.path.getsize(int8)}}}

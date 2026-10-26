@@ -67,7 +67,7 @@ def fit_temperature(z, y):
 def provider_cfg(exp):
     p = exp["providers"]
     return resolve(p["embedder"], p.get("runtime"), p.get("precision"), p.get("max_tokens") or None,
-                   p.get("threads") or None)
+                   p.get("threads") or None, p.get("ort_arena"), p.get("tokenizer") or None)
 
 
 def heads(run_dir, exp, lab, cache_dir):
@@ -107,7 +107,10 @@ def combiner(run_dir, exp, lab, records_path):
     keep = sd > 1e-9
     names = [n for n, k in zip(names, keep) if k]
     X, mu, sd = X[:, keep], mu[keep], sd[keep]
-    clf = LogisticRegression(C=float(exp["combiner"]["C"]), max_iter=4000)
+    l1 = float(exp["combiner"].get("l1_ratio", 0.0))
+    # saga shuffles the data; a fixed seed makes the combiner, and so every decision, reproducible.
+    clf = LogisticRegression(C=float(exp["combiner"]["C"]), max_iter=4000, l1_ratio=l1,
+                             solver="saga" if l1 > 0 else "lbfgs", random_state=0)
     clf.fit((X - mu) / sd, y)
     w = clf.coef_[0] / sd
     b = float(clf.intercept_[0] - np.sum(clf.coef_[0] * mu / sd))
