@@ -1,0 +1,69 @@
+{
+ "title": "Baseline (24923a5) and champion (edf10a6) in one interleaved timing pass of 200 dev messages; quality on the 967 primary dev messages",
+ "baseline": {
+  "latency_p50_ms": 91.734304000056,
+  "latency_p99_ms": 150.8377330010262,
+  "latency_mean_ms": 92.43774481004948,
+  "cpu_ms_per_email": 151.5167086800001,
+  "peak_mb": 1087.10546875,
+  "cost_per_1k": 122.02688728024819,
+  "false_positives": 0,
+  "false_negatives": 153,
+  "provider": {
+   "runtime": "torch",
+   "precision": "fp32",
+   "max_tokens": 256,
+   "threads": 2
+  }
+ },
+ "champion": {
+  "latency_p50_ms": 32.13398600018991,
+  "latency_p99_ms": 55.77082600029826,
+  "latency_mean_ms": 32.87094000509569,
+  "cpu_ms_per_email": 52.525549269999914,
+  "peak_mb": 384.8515625,
+  "cost_per_1k": 84.79834539813858,
+  "false_positives": 0,
+  "false_negatives": 95,
+  "provider": {
+   "runtime": "onnx",
+   "precision": "int8",
+   "max_tokens": 192,
+   "threads": 2
+  }
+ },
+ "ratios": {
+  "latency": {
+   "ratio": 0.3556008432771943,
+   "ci95": [
+    0.3421352510920624,
+    0.370016392874126
+   ]
+  },
+  "cpu": {
+   "ratio": 0.34666506240531325,
+   "ci95": [
+    0.3359900666101261,
+    0.3576866916011847
+   ]
+  },
+  "ram": {
+   "ratio": 0.35401492639211785,
+   "ci95": null
+  }
+ },
+ "quality": {
+  "point_per_1k": -37.22854188210962,
+  "ci95_per_1k": [
+   -50.67218200620476,
+   -24.81902792140641
+  ],
+  "new_false_positives": [],
+  "slices_worse": [],
+  "verdict": "improve"
+ },
+ "noise": {
+  "other_cpu_cores": 0.006,
+  "steal_cores": 0.016
+ }
+}

@@ -1,0 +1,20 @@
+commit	provider	cost_per_1k	latency_ms	cpu_ms	peak_mb	status
+24923a5	e5-small torch-fp32 t256 th2	122.03	78.7	142.4	1077	keep
+68f00b9	e5-small onnx-fp32 t256 th2	122.03	70.9	126.3	1186	discard
+daf8c5a	e5-small onnx-int8 t256 th2	120.99	40.3	65.2	612	keep
+21989ff	e5-small onnx-int8 t192 th2	120.99	48.2	64.0	613	keep
+15616e4	e5-small onnx-int8 t192 th1	120.99	46.6	42.9	613	discard
+5b41b8d	e5-small onnx-int8 t192 th2	115.82	47.8	65.1	613	discard
+0b5332b	e5-small onnx-int8 t192 th2	99.28	50.1	65.1	613	keep
+6a66449	e5-small onnx-int8 t192 th2	99.28	49.0	66.4	615	discard
+ce592b3	e5-small onnx-int8 t192 th2	87.90	47.5	64.0	615	keep
+680a628	e5-small onnx-int8 t192 th2	82.73	47.2	63.9	615	discard
+6236eb2	e5-small onnx-int8 t192 th2	93.07	48.5	66.4	615	discard
+12bff10	e5-small onnx-int8 t192 th2	88.93	49.3	66.6	385	keep
+edf10a6	e5-small onnx-int8 t192 th2	84.80	48.1	65.0	385	keep
+a07a698	e5-small onnx-int8 t192 th2	95.14	47.3	63.7	385	discard
+c3d1ad3	potion-ml-128m numpy-fp32 t0 th2	103.41	8.6	4.7	1895	discard
+af75790	mmbert-small torch-int8 t192 th2	113.75	99.7	166.2	1812	discard
+2293b5d	e5-small onnx-int8 t192 th2	83.76	45.6	61.5	385	discard
+239edee	e5-small onnx-int8 t192 th2	79.63	47.1	63.9	385	discard
+6bd3dcf	e5-small onnx-int8 t192 th2	81.70	47.5	62.9	385	discard

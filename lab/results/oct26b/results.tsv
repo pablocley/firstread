@@ -1,0 +1,28 @@
+commit	cost_per_1k	latency_ms	cpu_ms	peak_mb	axes	status	description
+24923a5	122.03	78.7	142.4	1077	baseline	keep	baseline: e5-small torch fp32, 256 tokens, 2 threads; threshold 0.990 from the cost table
+68f00b9	122.03	70.9	126.3	1186	q=equal,l=improve,f=worse	discard	e5-small on onnxruntime fp32 instead of torch | q +0.0 CI [+0.0,+0.0] l x0.738 c x0.798 r x1.098
+daf8c5a	120.99	40.3	65.2	612	q=equal,l=improve,f=improve	keep	e5-small onnxruntime int8 (dynamic quantisation) instead of torch fp32 | q -1.0 CI [-7.2,+5.2] l x0.426 c x0.423 r x0.566
+21989ff	120.99	48.2	64.0	613	q=equal,l=improve,f=improve	keep	token limit 192 instead of 256 | q +0.0 CI [-9.3,+9.3] l x0.898 c x0.855 r x1.000
+38166a7	220.27	39.8	48.3	613	q=worse,l=improve,f=improve	discard	token limit 128 | q +99.3 CI [-11.4,+311.3] l x0.817 c x0.743 r x1.000 gates fail:drift_vs_baseline
+15616e4	120.99	46.6	42.9	613	q=equal,l=worse,f=improve	discard	1 compute thread instead of 2 | q +0.0 CI [+0.0,+0.0] l x1.324 c x0.779 r x1.000
+1ac4cf4	295.76	49.2	63.2	613	q=worse,l=equal,f=equal	discard	combiner: cross-fitted Platt recalibration on calib | q +174.8 CI [-38.3,+489.1] l x0.989 c x1.000 r x1.000 gates fail:drift_vs_baseline
+5b41b8d	115.82	47.8	65.1	613	q=equal,l=equal,f=equal	discard	head C=3 | q -5.2 CI [-10.3,+0.0] l x0.993 c x1.003 r x1.000
+0b5332b	99.28	50.1	65.1	613	q=improve,l=equal,f=equal	keep	combiner C=2 | q -21.7 CI [-31.0,-13.4] l x0.994 c x0.998 r x1.000
+6a66449	99.28	49.0	66.4	615	q=equal,l=equal,f=equal	discard	onnxruntime memory arena and memory patterns off | q +0.0 CI [+0.0,+0.0] l x1.030 c x1.006 r x1.000
+bf5d40c	206.83	66.3	66.7	615	q=worse,l=unmeasured,f=unmeasured	discard	token limit 160 | q +107.5 CI [-1.0,+316.4] l x0.888 c x0.874 r x1.000 gates fail:drift_vs_baseline
+75dd17c	206.83	63.0	64.4	615	q=worse,l=unmeasured,f=unmeasured	discard	token limit 160 (rerun: noise) | q +107.5 CI [-1.0,+316.4] l x0.892 c x0.864 r x1.000 gates fail:drift_vs_baseline
+017ed7b	298.86	50.8	67.4	615	q=worse,l=equal,f=equal	discard	combiner C=4 | q +199.6 CI [-10.3,+511.9] l x0.979 c x0.981 r x1.000 gates fail:drift_vs_baseline
+8edb418	309.20	49.4	66.2	615	q=worse,l=equal,f=equal	discard	head: class-balanced logistic | q +209.9 CI [+2.1,+520.2] l x1.036 c x1.010 r x1.000 gates fail:drift_vs_baseline
+ce592b3	87.90	47.5	64.0	615	q=improve,l=equal,f=equal	keep	combiner: L1 penalty (sparser) | q -11.4 CI [-18.6,-5.2] l x0.988 c x1.000 r x1.000
+680a628	82.73	47.2	63.9	615	q=worse,l=equal,f=equal	discard	head C=3 | q -5.2 CI [-10.3,+0.0] l x0.980 c x0.992 r x1.000
+6236eb2	93.07	48.5	66.4	615	q=worse,l=equal,f=equal	discard	head C=0.5 | q +5.2 CI [+1.0,+10.3] l x1.006 c x1.009 r x1.000
+12bff10	88.93	49.3	66.6	385	q=equal,l=equal,f=improve	keep	SentencePiece tokenizer instead of the tokenizers library | q +1.0 CI [+0.0,+3.1] l x1.014 c x1.008 r x0.626
+edf10a6	84.80	48.1	65.0	385	q=improve,l=equal,f=equal	keep	combiner C=4 with L1 | q -4.1 CI [-8.3,-1.0] l x0.950 c x0.979 r x0.999
+a07a698	95.14	47.3	63.7	385	q=worse,l=equal,f=equal	discard	combiner C=1 with L1 | q +10.3 CI [+4.1,+17.6] l x0.985 c x0.982 r x1.000
+e8420b4	175.80	331.9	610.9	1993	q=worse,l=worse,f=worse	discard	information: harrier-270m torch fp32 256 tokens | q +91.0 CI [-22.8,+305.1] l x9.916 c x11.384 r x5.179 gates fail:drift_vs_baseline
+c3d1ad3	103.41	8.6	4.7	1895	q=worse,l=improve,f=worse	discard	information: potion-multilingual-128M (static embeddings) | q +18.6 CI [+5.2,+32.1] l x0.251 c x0.085 r x4.924
+11f3bc6	293.69	5.3	2.3	5	q=worse,l=improve,f=improve	discard	information: tier 0 only, no model | q +208.9 CI [+90.0,+427.1] l x0.148 c x0.042 r x0.012 gates fail:drift_vs_baseline
+af75790	113.75	99.7	166.2	1812	q=worse,l=worse,f=worse	discard	information: mmbert-small torch int8 192 tokens | q +29.0 CI [+14.5,+43.4] l x3.099 c x3.228 r x4.710
+2293b5d	83.76	45.6	61.5	385	q=equal,l=equal,f=equal	discard	combiner C=8 with L1 | q -1.0 CI [-3.1,+0.0] l x0.978 c x0.999 r x1.000
+239edee	79.63	47.1	63.9	385	q=equal,l=equal,f=equal	discard	head C=3 (on the L1 combiner) | q -5.2 CI [-11.4,+0.0] l x1.000 c x1.003 r x1.000
+6bd3dcf	81.70	47.5	62.9	385	q=worse,l=equal,f=equal	discard	head C=2 | q -3.1 CI [-7.2,+0.0] l x1.010 c x1.005 r x1.000
