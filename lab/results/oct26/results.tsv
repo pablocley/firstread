@@ -1,0 +1,28 @@
+commit	cost_per_1k	p99_ms	ece_max	memory_mb	gates	status	description
+42849d7	414.68	0.96	0.025	5.3	pass	keep	baseline: tier 0 only (32 deterministic facts), threshold 0.990 from the cost table
+d95a63b	236.81	1.57	0.011	39.7	pass	keep	potion-ml-128m head (static, 256-d) + tier 0; CI95 of delta [-394,-61]
+8d84dd9	225.44	3.65	0.017	39.7	pass	discard	e5-small head instead of potion: -11.4/1k but CI95 [-23.8,+1.0] not significant
+e72b534	235.78	2.30	0.014	39.6	pass	discard	potion head C=10: CI95 [-9.3,+6.2]
+0098fbd	134.44	3.15	0.011	39.6	pass	keep	re-baseline after the IBAN fix (code change, reviewed with fixtures): potion + tier 0; 0 false positives
+e678740	122.03	2.58	0.015	39.7	pass	keep	e5-small head instead of potion: CI95 [-24.8,-1.0], barely significant
+6430a2c	209.93	3.44	0.042	39.7	pass	discard	combiner C=0.1: worse, CI95 [+71,+105]
+2d09814	291.62	2.88	0.017	39.7	fail:hard_negatives	discard	combiner C=10: two hard-ham false positives
+4774a4f	149.95	na	na	na	pass	discard	ablation without links. (information): FP 0 FN 234 delta CI95 [14.477766287487073, 41.36504653567735]
+9d33076	213.03	na	na	na	fail:hard_negatives	discard	ablation without auth. (information): FP 1 FN 160 delta CI95 [-19.64839710444674, 304.0330920372286]
+e09f106	140.64	na	na	na	pass	discard	ablation without subject. (information): FP 0 FN 172 delta CI95 [8.273009307135471, 28.955532574974146]
+37beca3	118.92	na	na	na	pass	discard	ablation without body. (information): FP 0 FN 172 delta CI95 [-10.341261633919338, 4.1365046535677354]
+a6efff8	120.99	na	na	na	pass	discard	ablation without sender. (information): FP 0 FN 149 delta CI95 [-3.102378490175801, 0.0]
+a67120d	119.96	na	na	na	pass	discard	ablation without list. (information): FP 0 FN 151 delta CI95 [-7.238883143743537, 3.102378490175801]
+b972613	119.96	na	na	na	pass	discard	ablation without transport. (information): FP 0 FN 147 delta CI95 [-5.170630816959669, 0.0]
+22ffb28	125.13	na	na	na	pass	discard	ablation without attach. (information): FP 0 FN 156 delta CI95 [0.0, 7.238883143743537]
+ef92023	122.03	na	na	na	pass	discard	ablation without thread. (information): FP 0 FN 154 delta CI95 [0.0, 0.0]
+ab291d5	131.33	na	na	na	pass	discard	ablation without meta. (information): FP 0 FN 162 delta CI95 [3.102378490175801, 15.511892450879007]
+08ca7de	124.10	na	na	na	pass	discard	e5 head C=0.3: delta CI95 [-4.1365046535677354, 7.238883143743537]
+57916d3	117.89	na	na	na	pass	discard	e5 head C=3.0: delta CI95 [-9.307135470527404, 0.0]
+bdee30d	103.41	na	na	na	pass	discard	threshold 0.98 (information): FP 0 FN 124 delta CI95 [-26.88728024819028, -10.341261633919338]
+8860242	136.50	na	na	na	pass	discard	threshold 0.995 (information): FP 0 FN 183 delta CI95 [7.238883143743537, 21.71664943123061]
+176a66b	83.76	na	na	na	pass	discard	threshold 0.97 (information): FP 0 FN 103 delta CI95 [-50.67218200620476, -26.88728024819028]
+0cb7239	280.25	na	na	na	fail:hard_negatives	discard	threshold 0.95 (information): FP 2 FN 83 delta CI95 [-55.84281282316442, 473.6297828335057]
+ab55357	359.88	na	na	na	fail:hard_negatives	discard	threshold 0.90 (information): FP 3 FN 54 delta CI95 [-74.45708376421923, 645.2947259565667]
+eeded040c	116.86	1.83	0.013	39.6	pass	discard	mmbert-small head instead of e5: CI95 [-19.6,+8.3] not significant; synthetic_nl slice worse (108.5 vs 62.0)
+ec0ccaa	126.16	2.16	0.017	39.7	pass	discard	combiner trained on SA slices only (information): CI95 [0,+9.3] on SA, so the cross-source rows do not distort the primary; modern slice 342.6 without auth/list facts

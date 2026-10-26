@@ -1,0 +1,9 @@
+[
+ {"desc": "SentencePiece tokenizer instead of the tokenizers library", "set": [["providers", "tokenizer", "\"sentencepiece\""]]},
+ {"desc": "combiner C=4 with L1", "set": [["combiner", "C", "4.0"]]},
+ {"desc": "combiner C=1 with L1", "set": [["combiner", "C", "1.0"]]},
+ {"desc": "information: harrier-270m torch fp32 256 tokens", "set": [["providers", "embedder", "\"harrier-270m\""], ["providers", "runtime", "\"torch\""], ["providers", "precision", "\"fp32\""], ["providers", "max_tokens", "256"], ["providers", "tokenizer", "\"\""]]},
+ {"desc": "information: potion-multilingual-128M (static embeddings)", "set": [["providers", "embedder", "\"potion-ml-128m\""], ["providers", "runtime", "\"\""], ["providers", "precision", "\"\""], ["providers", "max_tokens", "0"], ["providers", "tokenizer", "\"\""]]},
+ {"desc": "information: tier 0 only, no model", "set": [["providers", "embedder", "\"none\""]]},
+ {"desc": "information: mmbert-small torch int8 192 tokens", "set": [["providers", "embedder", "\"mmbert-small\""], ["providers", "runtime", "\"torch\""], ["providers", "precision", "\"int8\""], ["providers", "max_tokens", "192"], ["providers", "tokenizer", "\"\""]]}
+]

@@ -1,0 +1,6 @@
+# lab/analysis/head_probe.py potion-ml-128m e5-small mmbert-small, 2026-10-26, torch fp32 vectors, 256 tokens
+# head alone, logistic C=1, temperature on calib, threshold 100/101, primary slice of dev (967 messages, 303 spam)
+{"repr": "hashed-ngrams (word 1-2 + char 3-5)", "auc_sa": 0.9934, "fp_sa": 1, "fn_sa": 162, "spam_caught_sa": "141/303", "cost_per_1k_head_only": 270.9}
+{"repr": "potion-ml-128m", "auc_sa": 0.9814, "fp_sa": 1, "fn_sa": 142, "spam_caught_sa": "161/303", "cost_per_1k_head_only": 250.3}
+{"repr": "e5-small", "auc_sa": 0.9869, "fp_sa": 1, "fn_sa": 136, "spam_caught_sa": "167/303", "cost_per_1k_head_only": 244.1}
+{"repr": "mmbert-small", "auc_sa": 0.9625, "fp_sa": 0, "fn_sa": 213, "spam_caught_sa": "90/303", "cost_per_1k_head_only": 220.3}

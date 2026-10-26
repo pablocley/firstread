@@ -1,0 +1,9 @@
+[
+ {"desc": "onnxruntime memory arena and memory patterns off", "set": [["providers", "ort_arena", "false"]]},
+ {"desc": "token limit 160", "set": [["providers", "max_tokens", "160"]]},
+ {"desc": "combiner C=4", "set": [["combiner", "C", "4.0"]]},
+ {"desc": "head: class-balanced logistic", "set": [["heads", "class_weight", "\"balanced\""]], "patch": "lab/loop/patches/head_balanced.py"},
+ {"desc": "combiner: L1 penalty (sparser)", "set": [["combiner", "l1_ratio", "1.0"]], "patch": "lab/loop/patches/combiner_l1.py"},
+ {"desc": "head C=3", "set": [["heads", "C", "3.0"]]},
+ {"desc": "head C=0.5", "set": [["heads", "C", "0.5"]]}
+]

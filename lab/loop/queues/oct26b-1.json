@@ -1,0 +1,9 @@
+[
+ {"desc": "e5-small onnxruntime int8 (dynamic quantisation) instead of torch fp32", "set": [["providers", "runtime", "\"onnx\""], ["providers", "precision", "\"int8\""]]},
+ {"desc": "token limit 192 instead of 256", "set": [["providers", "max_tokens", "192"]]},
+ {"desc": "token limit 128", "set": [["providers", "max_tokens", "128"]]},
+ {"desc": "1 compute thread instead of 2", "set": [["providers", "threads", "1"]]},
+ {"desc": "combiner: cross-fitted Platt recalibration on calib", "set": [["combiner", "recalibrate", "true"]], "patch": "lab/loop/patches/recalibrate.py"},
+ {"desc": "head C=3", "set": [["heads", "C", "3.0"]]},
+ {"desc": "combiner C=2", "set": [["combiner", "C", "2.0"]]}
+]

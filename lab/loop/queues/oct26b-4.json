@@ -1,0 +1,5 @@
+[
+ {"desc": "combiner C=8 with L1", "set": [["combiner", "C", "8.0"]]},
+ {"desc": "head C=3 (on the L1 combiner)", "set": [["heads", "C", "3.0"]]},
+ {"desc": "head C=2", "set": [["heads", "C", "2.0"]]}
+]
