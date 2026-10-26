@@ -1,0 +1,10 @@
+/target
+*.onnx
+*.safetensors
+*.gguf
+models/
+ml/**/.cache/
+__pycache__/
+# never commit real mail
+*.real.eml
+private-eval/

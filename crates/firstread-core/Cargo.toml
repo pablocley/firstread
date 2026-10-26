@@ -1,0 +1,9 @@
+[package]
+name = "firstread-core"
+description = "The shared contract: message state, signals, typed decisions, verdicts and the stamp."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "firstread-events"
+description = "Event log schema and adapters for delivery, IMAPSieve, push-notification and API feedback."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "firstread-auth"
+description = "SPF, DKIM, DMARC, ARC and Authentication-Results."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

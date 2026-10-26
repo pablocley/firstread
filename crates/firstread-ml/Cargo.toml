@@ -1,0 +1,12 @@
+[package]
+name = "firstread-ml"
+description = "Embeddings, calibrated decision heads and the tier-2 client."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

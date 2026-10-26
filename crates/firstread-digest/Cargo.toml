@@ -1,0 +1,12 @@
+[package]
+name = "firstread-digest"
+description = "The periodic digest mail and its signed one-tap actions."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

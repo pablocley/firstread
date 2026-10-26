@@ -1,0 +1,47 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/firstread-core",
+    "crates/firstread-parse",
+    "crates/firstread-auth",
+    "crates/firstread-net",
+    "crates/firstread-links",
+    "crates/firstread-ml",
+    "crates/firstread-graph",
+    "crates/firstread-stamp",
+    "crates/firstread-outbound",
+    "crates/firstread-learn",
+    "crates/firstread-events",
+    "crates/firstread-commons",
+    "crates/firstread-digest",
+    "crates/firstreadd",
+    "crates/firstread-filter",
+    "crates/firstread-milter",
+    "crates/firstread",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# External dependencies are added when a crate is implemented, pinned exactly where the
+# ecosystem is pre-1.0 or a release candidate (see docs/decisions/0001-rust-runtime-python-learning.md).
+[workspace.dependencies]
+firstread-core = { path = "crates/firstread-core" }
+firstread-parse = { path = "crates/firstread-parse" }
+firstread-auth = { path = "crates/firstread-auth" }
+firstread-net = { path = "crates/firstread-net" }
+firstread-links = { path = "crates/firstread-links" }
+firstread-ml = { path = "crates/firstread-ml" }
+firstread-graph = { path = "crates/firstread-graph" }
+firstread-stamp = { path = "crates/firstread-stamp" }
+firstread-outbound = { path = "crates/firstread-outbound" }
+firstread-learn = { path = "crates/firstread-learn" }
+firstread-events = { path = "crates/firstread-events" }
+firstread-commons = { path = "crates/firstread-commons" }
+firstread-digest = { path = "crates/firstread-digest" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"

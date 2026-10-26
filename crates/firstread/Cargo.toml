@@ -1,0 +1,12 @@
+[package]
+name = "firstread"
+description = "CLI: inspect a message and print every signal and why."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "firstread-links"
+description = "Static URL analysis, lookalike domains and brand impersonation."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

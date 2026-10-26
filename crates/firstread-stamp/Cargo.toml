@@ -1,0 +1,12 @@
+[package]
+name = "firstread-stamp"
+description = "Turns a stamp into headers, keywords and API records."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

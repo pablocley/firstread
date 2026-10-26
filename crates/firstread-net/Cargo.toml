@@ -1,0 +1,12 @@
+[package]
+name = "firstread-net"
+description = "DNS, DNSBL, MTA-STS/DANE/TLS-RPT and RDAP lookups with caching."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

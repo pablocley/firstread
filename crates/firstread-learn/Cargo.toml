@@ -1,0 +1,12 @@
+[package]
+name = "firstread-learn"
+description = "Learners over the event log: counters, exemplars, residual heads, platform heads, promotion."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

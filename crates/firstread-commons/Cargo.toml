@@ -1,0 +1,12 @@
+[package]
+name = "firstread-commons"
+description = "Optional cross-deployment threat commons: gated export, signing, hub client and hub."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true

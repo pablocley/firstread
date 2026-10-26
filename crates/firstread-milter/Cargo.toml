@@ -1,0 +1,12 @@
+[package]
+name = "firstread-milter"
+description = "Postfix milter front-end: optional inbound pre-acceptance, outbound submission checks."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+firstread-core.workspace = true
+
+[lints]
+workspace = true
