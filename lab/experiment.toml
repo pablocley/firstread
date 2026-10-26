@@ -1,43 +1,39 @@
-# The one file the research agent edits (docs/13-lab.md section 6).
-# Starting values are neutral placeholders, not recommendations. The first run records the
-# baseline with them; every later change is judged against that baseline.
+# The one file the research agent edits (docs/13-lab.md section 6), plus ml/heads/train.py.
+# The first run of a tag records the baseline; every later change is judged against the champion.
+# On main: the champion of tag oct26b (edf10a6, lab/results/oct26b/).
 
 [providers]
-# Ids from the provider registry (docs/14-providers.md). Candidates measured so far are in
-# docs/04-models.md; the lab measures them again on its own data and hardware.
-embedder = "intfloat/multilingual-e5-small"
-embedder_precision = "fp32"
-decider_tier1 = "heads-on-embedder"
-decider_tier2 = "chaoliangUNSW/Jev-Style-0.8B-Decision-v3"
-decider_tier2_precision = "q4"
+# "none" (tier 0 only), or an embedder from ml/sidecar/providers.py:
+# potion-ml-128m, e5-small, mmbert-small, harrier-270m.
+embedder = "e5-small"
+# The configuration, from the embedder's entry in the registry; empty or 0 takes its default.
+# runtime: "torch", "onnx" (e5-small) or "numpy" (potion); precision: "fp32" or "int8";
+# max_tokens: input token limit; threads: compute threads in the sidecar; ort_arena: onnxruntime's
+# memory arena and memory-pattern planning (memory and speed only, not the vectors); tokenizer:
+# "hf" or "sentencepiece" (onnx, e5-small).
+runtime = "onnx"
+precision = "int8"
+max_tokens = 192
+threads = 0
+ort_arena = true
+tokenizer = "sentencepiece"
+
+[render]
+# Provider text version. Only "r1" (firstread render-batch defaults) is rendered and embedded.
+version = "r1"
 
 [heads]
-# The heads-training script the agent may edit (created when the lab is built), and its settings.
-script = "ml/heads/train.py"
-kind = "logistic"
-calibration = "temperature"
-
-[signals]
-# Deterministic tier-0 signals on or off. Every signal in docs/02-signals.md starts on.
-all = true
+# Logistic head on the embedding, per question.
+C = 1.0
 
 [combiner]
-# Per-signal weights in the combiner; empty means the trained combiner's own weights.
+# Logistic combiner over tier-0 facts and head logits, trained on the calib split.
+C = 4.0
+# 0 is an L2 penalty (lbfgs), 1 an L1 penalty (saga), in between elastic net.
+l1_ratio = 1.0
+# Feature names or prefixes to leave out, e.g. ["links.", "auth."].
+disabled = []
 
 [thresholds]
-# Calibrated probability above which each action is taken.
-keyword_phishing = 0.5
-junk_imap = 0.5
-junk_pop3 = 0.5
-subject_prefix = 0.5
-later = 0.5
-
-[escalation]
-# Tier-1 uncertainty band that sends a question to tier 2 (asynchronously).
-# An empty band (low = high) means no escalation.
-band_low = 0.5
-band_high = 0.5
-
-[learners]
-# Overrides of the learners' own defaults, within the ranges docs/08-learning.md allows.
-# Empty means the defaults.
+# "cost" derives the Bayes threshold from the cost table: P(junk) >= c_fp / (c_fp + c_fn).
+junk = "cost"
