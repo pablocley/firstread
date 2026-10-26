@@ -1,0 +1,4 @@
+#!/bin/sh
+# Simulates a filter that cannot vouch for the message: reads its input, writes nothing, exits 1.
+cat > /dev/null
+exit 1

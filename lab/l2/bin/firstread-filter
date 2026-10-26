@@ -1,0 +1,3 @@
+#!/bin/sh
+# Wrapper so the filter finds the lab daemon; extprograms pass USER, SENDER, RECIPIENT, ORIG_RECIPIENT.
+FIRSTREAD_SOCKET=/srv/l2/run/firstread.sock FIRSTREAD_DEADLINE_MS=2000 exec /srv/l2/bin-real/firstread-filter

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Simulates a filter that hangs past sieve_filter_exec_timeout (it reads its input first).
+cat > /dev/null
+sleep 30
