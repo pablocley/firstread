@@ -7,7 +7,9 @@ lab/protected.sha256 and the training sources against lab/datasets.toml, fills t
 of the experiment's space if needed, trains heads, starts the tier-1 sidecar and the real
 `firstreadd`, feeds every calib item through the real `firstread-filter` the way Dovecot does
 (message on stdin, delivery context in the environment), trains the combiner on what the pipeline
-recorded, then feeds the dev items (or, with --sealed, the sealed items) and scores them.
+recorded, then feeds the dev items (or, with --sealed, the sealed items) and scores them. A sealed
+query is counted against the ration in lab/cost.toml first, and its per-message output is kept in
+the lab data directory, out of the run directory (docs/13-lab.md section 4).
 
 Then the timing pass: the champion (lab/runs/champion) and this run each get a sidecar that
 computes every vector (no cache, model loaded first) and a daemon, and the same sample of dev
@@ -61,7 +63,13 @@ def digest(path):
 
 
 def lock_lines():
-    return [f"{digest(p)}  {os.path.relpath(p, REPO) if p.startswith(REPO) else p}" for p in protected_files()]
+    """`sha256  path`, with repository files relative to the repository and the lab data's manifest
+    as `<lab_data>/manifest.json`, so the lock holds wherever either lives."""
+    def name(p):
+        if p == os.path.join(LAB, "manifest.json"):
+            return "<lab_data>/manifest.json"
+        return os.path.relpath(p, REPO)
+    return sorted((f"{digest(p)}  {name(p)}" for p in protected_files()), key=lambda l: l.split("  ", 1)[1])
 
 
 def check_lock():
@@ -114,7 +122,7 @@ def provider_cfg(exp):
     if p["embedder"] == "none":
         return None
     return resolve(p["embedder"], p.get("runtime"), p.get("precision"), p.get("max_tokens") or None,
-                   p.get("threads") or None)
+                   p.get("threads") or None, p.get("ort_arena"), p.get("tokenizer") or None)
 
 
 def threshold_of(exp, costs):
@@ -411,6 +419,36 @@ def quality_verdict(cmp, tol):
     return "equal"
 
 
+def run_tag():
+    """The run tag is the branch name without its lab/ prefix (lab/program.md: branch lab/<tag>)."""
+    b = subprocess.run(["git", "-C", REPO, "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True).stdout.strip()
+    return b.removeprefix("lab/") or "untagged"
+
+
+def sealed_query(costs):
+    """Count and log a sealed query before it runs (docs/13-lab.md section 4); refuse past the ration."""
+    log = os.path.join(LAB, "sealed", "queries.log")
+    tag = run_tag()
+    used = [l for l in open(log) if l.split("\t")[1] == tag] if os.path.exists(log) else []
+    if len(used) >= int(costs["run"]["sealed_queries_per_tag"]):
+        sys.exit(f"sealed queries for tag {tag}: {len(used)} used of {costs['run']['sealed_queries_per_tag']}; refusing")
+    commit = subprocess.run(["git", "-C", REPO, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+    open(log, "a").write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')}\t{tag}\t{commit}\n")
+    return os.path.join(LAB, "sealed", "runs", f"{tag}-{len(used) + 1}")
+
+
+def seal_away(run_dir, private, s):
+    """Per-message sealed output (records, daemon log, message ids) goes to the lab data dir, not run_dir."""
+    os.makedirs(private, exist_ok=True)
+    for f in ["sealed.records.jsonl", "sealed.daemon.log"]:
+        if os.path.exists(os.path.join(run_dir, f)):
+            shutil.move(os.path.join(run_dir, f), os.path.join(private, f))
+    json.dump(s, open(os.path.join(private, "summary.sealed.json"), "w"), indent=1)
+    s["hard_negative_fp"] = len(s.get("hard_negative_fp", []))
+    s["violation_examples"] = len(s.get("violation_examples", []))
+    s["private"] = private
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if "--write-lock" in sys.argv:
@@ -427,6 +465,7 @@ def main():
     shutil.copy(exp_path, os.path.join(run_dir, "experiment.toml"))
     exp = tomllib.load(open(exp_path, "rb"))
     costs = load_costs()
+    private = sealed_query(costs) if sealed else None
     keep = costs["keep"]
     c = costs["cost"]
     threshold = threshold_of(exp, costs)
@@ -511,6 +550,8 @@ def main():
         ok = s["gates"] == "pass" and "worse" not in axes.values() and "unmeasured" not in axes.values() \
             and "improve" in axes.values()
         s["keep"] = "yes" if ok else "no"
+    if sealed:
+        seal_away(run_dir, private, s)
     json.dump(s, open(os.path.join(run_dir, f"summary.{target}.json"), "w"), indent=1)
     print("---")
     for k in ["keep", "axes", "gates", "cost_per_1k", "champion_cost_per_1k", "false_positives", "false_negatives",

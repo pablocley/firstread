@@ -1,12 +1,19 @@
 """Build the lab's items and splits (docs/13-lab.md section 3).
 
-Usage: python3 -I prepare.py <lab-data-dir>
+Usage: python3 -I prepare.py <lab-data-dir> [--write-reference]
 
-Reads the extracted corpora under <lab-data-dir>/extract and <lab-data-dir>/raw/lore, writes one
+Reads the extracted corpora under <lab-data-dir>/extract and <lab-data-dir>/raw/lore (fetch.py), writes one
 `.eml` per item exactly as Dovecot would hand it to the filter (no mbox `From ` line, CRLF line
 endings), and the split manifests train / calib / dev under <lab-data-dir>/splits and the sealed
 split under <lab-data-dir>/sealed. Splits are by time first (the newest 20% of each source and
 class go to sealed), then by near-duplicate cluster (simhash), so copies never straddle splits.
+
+lab/data/untroubled.txt lists the untroubled messages taken (the October archive keeps growing),
+so the sample does not depend on when the archive was fetched. lab/data/manifest.json holds a hash
+over every message (origin and sha256 after normalisation) and one per split (ids, labels, slices,
+message hashes; no local paths), so two machines can compare them; prepare refuses any difference
+and writes <lab-data-dir>/items.tsv to find it. --write-reference writes both reference files from
+the data at hand (a new tag).
 """
 
 import hashlib
@@ -20,7 +27,11 @@ from email.utils import parsedate_to_datetime, parseaddr
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import synth_nl  # noqa: E402
+import tomllib  # noqa: E402
 
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+REF_UNTROUBLED = os.path.join(REPO, "lab", "data", "untroubled.txt")
+REF_MANIFEST = os.path.join(REPO, "lab", "data", "manifest.json")
 SEED = 20261026
 UNTROUBLED_CAP = 1500
 
@@ -91,7 +102,13 @@ def clusters(hashes):
     return [u.find(i) for i in range(len(hashes))]
 
 
-def collect(data):
+def reference():
+    if not os.path.exists(REF_UNTROUBLED):
+        return None
+    return {l.strip() for l in open(REF_UNTROUBLED) if l.strip() and not l.startswith("#")}
+
+
+def collect(data, ref):
     items = []
     sa = os.path.join(data, "extract", "sa")
     for sub, label, slice_ in [("easy_ham", "legit", "sa"), ("easy_ham_2", "legit", "sa"),
@@ -105,17 +122,22 @@ def collect(data):
                           "hard_negative": slice_ == "sa_hard_ham", "recipient": "user@sa.lab.invalid",
                           "raw": open(os.path.join(d, name), "rb").read(), "orig": f"sa/{sub}/{name}"})
     unt = os.path.join(data, "extract", "untroubled")
-    paths = sorted(os.path.join(r, f) for r, _, fs in os.walk(unt) for f in fs)
-    random.Random(SEED).shuffle(paths)
-    for p in sorted(paths[:UNTROUBLED_CAP]):
+    paths = sorted(os.path.join(r, f) for r, _, fs in os.walk(unt) for f in fs if not f.startswith(".from-"))
+    if ref is not None:
+        chosen = sorted(p for p in paths if os.path.relpath(p, unt) in ref)
+    else:
+        random.Random(SEED).shuffle(paths)
+        chosen = sorted(paths[:UNTROUBLED_CAP])
+    for p in chosen:
         items.append({"source": "untroubled", "slice": "modern_cross_source", "label": "junk",
                       "subclass": "spam", "hard_negative": False, "recipient": "bruce@untroubled.org",
                       "raw": open(p, "rb").read(), "orig": os.path.relpath(p, unt)})
     lore = os.path.join(data, "raw", "lore")
-    for lst in sorted(os.listdir(lore)):
+    pins = {e["list"]: e for e in tomllib.load(open(os.path.join(REPO, "lab", "datasets.toml"), "rb"))["lore"]}
+    for lst in sorted(pins):
         repo = os.path.join(lore, lst)
-        commits = subprocess.run(["git", "-C", repo, "rev-list", "HEAD"], capture_output=True,
-                                 text=True, check=True).stdout.split()
+        commits = subprocess.run(["git", "-C", repo, "rev-list", "-n", str(pins[lst]["count"]), pins[lst]["head"]],
+                                 capture_output=True, text=True, check=True).stdout.split()
         for c in commits:
             raw = subprocess.run(["git", "-C", repo, "show", f"{c}:m"], capture_output=True).stdout
             if raw:
@@ -129,8 +151,14 @@ def collect(data):
     return items
 
 
-def main(data):
-    items = collect(data)
+def split_hash(members):
+    lines = sorted(f"{it['source']}-{it['sha256'][:16]}\t{it['label']}\t{it['slice']}\t{it['sha256']}" for it in members)
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()
+
+
+def main(data, write_reference=False):
+    ref = None if write_reference else reference()
+    items = collect(data, ref)
     seen = set()
     unique = []
     for it in items:
@@ -144,6 +172,14 @@ def main(data):
         it["date"], it["sender"] = date, sender
         unique.append(it)
     print(f"items: {len(items)} collected, {len(unique)} after exact de-duplication")
+    if ref is not None:
+        got = {it["orig"] for it in unique if it["source"] == "untroubled"}
+        if got != ref:
+            sys.exit(f"untroubled messages differ from lab/data/untroubled.txt: {len(ref - got)} missing")
+    item_lines = sorted(f"{it['orig']}\t{it['sha256']}" for it in unique)
+    with open(os.path.join(data, "items.tsv"), "w") as f:
+        f.write("\n".join(item_lines) + "\n")
+    items_sha256 = hashlib.sha256("\n".join(item_lines).encode()).hexdigest()
 
     rng = random.Random(SEED)
     splits = {"train": [], "calib": [], "dev": [], "sealed": []}
@@ -195,11 +231,22 @@ def main(data):
         for it in members:
             counts[f"{it['slice']}:{it['label']}"] = counts.get(f"{it['slice']}:{it['label']}", 0) + 1
         summary[split] = {"n": len(members), "by_slice_label": dict(sorted(counts.items())),
-                          "manifest_sha256": hashlib.sha256(open(manifest, "rb").read()).hexdigest()}
+                          "split_sha256": split_hash(members)}
+    doc = {"seed": SEED, "untroubled_cap": UNTROUBLED_CAP, "items": len(unique), "items_sha256": items_sha256,
+           "splits": summary}
     with open(os.path.join(data, "manifest.json"), "w") as f:
-        json.dump({"seed": SEED, "untroubled_cap": UNTROUBLED_CAP, "splits": summary}, f, indent=1)
+        json.dump(doc, f, indent=1)
     print(json.dumps(summary, indent=1))
+    if write_reference:
+        os.makedirs(os.path.dirname(REF_UNTROUBLED), exist_ok=True)
+        with open(REF_UNTROUBLED, "w") as f:
+            f.write("# untroubled.org messages in the lab, by path inside lab-data/extract/untroubled (prepare.py)\n")
+            f.write("\n".join(sorted(it["orig"] for it in unique if it["source"] == "untroubled")) + "\n")
+        json.dump(doc, open(REF_MANIFEST, "w"), indent=1)
+        print("reference written: lab/data/untroubled.txt, lab/data/manifest.json")
+    elif os.path.exists(REF_MANIFEST) and json.load(open(REF_MANIFEST)) != doc:
+        sys.exit(f"messages or splits differ from lab/data/manifest.json; per-message hashes in {data}/items.tsv")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], "--write-reference" in sys.argv)
