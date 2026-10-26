@@ -1,4 +1,4 @@
-"""The README charts, from committed lab results only.
+"""The README charts, from committed lab results only; plain SVG written directly, no plotting library.
 
 Usage: python3 -I lab/analysis/plots.py <tag>      (reads lab/results/<tag>/, writes docs/img/)
 
@@ -9,14 +9,10 @@ Usage: python3 -I lab/analysis/plots.py <tag>      (reads lab/results/<tag>/, wr
   timing pass (head-to-head.json), on each axis.
 """
 import json
+import math
 import os
 import re
 import sys
-
-import matplotlib
-
-matplotlib.use("svg")
-import matplotlib.pyplot as plt  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 THEMES = {
@@ -25,7 +21,7 @@ THEMES = {
     "dark": {"surface": "#1a1a19", "ink": "#f0efec", "ink2": "#c3c2b7", "muted": "#898781",
              "grid": "#2c2c2a", "axis": "#383835", "series": "#3987e5"},
 }
-plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10, "svg.fonttype": "none", "svg.hashsalt": "firstread"})
+FONT = "font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif"
 
 
 def rows(tag):
@@ -55,28 +51,23 @@ def indexed(rs):
     return [r for r in rs if r.get("lat_i") is not None]
 
 
-def save(fig, path, t):
-    """Write the SVG without a date and without indentation, so reruns are byte-identical and small."""
-    fig.savefig(path, facecolor=t["surface"], metadata={"Date": None})
-    plt.close(fig)
-    svg = open(path).read()
-    svg = re.sub(r">\s+<", "><", svg)
-    svg = re.sub(r"<metadata>.*?</metadata>", "", svg, flags=re.S)
-    svg = re.sub(r"<g id=\"[^\"]*\"", "<g", svg)
-    svg = re.sub(r"<[^>]+>", lambda m: re.sub(r"(\d\.\d)\d+", r"\1", m.group(0)), svg)  # markup only, not labels
-    svg = re.sub(r"\s*\n\s*", " ", svg)
-    open(path, "w").write(svg)
+def ticks(top):
+    """Round axis ticks from 0 to at least `top`, four or five of them."""
+    raw = top / 4
+    mag = 10 ** math.floor(math.log10(raw))
+    step = next(m * mag for m in [1, 2, 2.5, 5, 10] if m * mag >= raw)
+    n = math.ceil(top / step - 1e-9)
+    return [round(i * step, 10) for i in range(n + 1)]
 
 
-def style(ax, t):
-    ax.set_facecolor(t["surface"])
-    for side in ["top", "right"]:
-        ax.spines[side].set_visible(False)
-    for side in ["left", "bottom"]:
-        ax.spines[side].set_color(t["axis"])
-    ax.tick_params(colors=t["ink2"], labelsize=9)
-    ax.grid(True, color=t["grid"], linewidth=0.8)
-    ax.set_axisbelow(True)
+def svg(w, h, t, body):
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" '
+            f'style="{FONT}"><rect width="{w}" height="{h}" fill="{t["surface"]}"/>{"".join(body)}</svg>\n')
+
+
+def text(x, y, s, fill, size=11, anchor="start", weight=None):
+    w = f' font-weight="{weight}"' if weight else ""
+    return f'<text x="{x:.1f}" y="{y:.1f}" font-size="{size}" fill="{fill}" text-anchor="{anchor}"{w}>{s}</text>'
 
 
 def loop_chart(tag, rs, mode):
@@ -84,28 +75,35 @@ def loop_chart(tag, rs, mode):
     latency, CPU and memory indexed to the baseline (each step's ratio against its champion, chained)."""
     t = THEMES[mode]
     kept = [r for r in rs if r["status"] == "keep" or r["axes"] == "baseline"]
-    xs = list(range(len(kept)))
     panels = [("cost", "cost per 1,000 messages", "{:.0f}"), ("lat_i", "latency per email, index", "{:.2f}"),
               ("cpu_i", "CPU per email, index", "{:.2f}"), ("ram_i", "peak memory, index", "{:.2f}")]
-    fig, axes = plt.subplots(1, 4, figsize=(10, 2.7), facecolor=t["surface"])
-    for ax, (key, title, fmt) in zip(axes, panels):
-        style(ax, t)
-        ax.grid(True, axis="y", color=t["grid"], linewidth=0.8)
-        ax.grid(False, axis="x")
+    pw, h, left, top, bottom = 190, 200, 34, 30, 36
+    body = []
+    for k, (key, title, fmt) in enumerate(panels):
+        x0 = k * pw + left
+        x1 = (k + 1) * pw - 12
+        y0, y1 = h - bottom, top
         ys = [r[key] for r in kept]
-        ax.plot(xs, ys, color=t["series"], linewidth=2, drawstyle="steps-post", zorder=3)
-        ax.scatter(xs, ys, s=40, color=t["series"], edgecolors=t["surface"], linewidths=2, zorder=4)
-        for i in [0, len(xs) - 1]:
-            ax.annotate(fmt.format(ys[i]), (xs[i], ys[i]), xytext=(0, 7), textcoords="offset points",
-                        ha="center", va="bottom", color=t["ink"], fontsize=8.5)
-        ax.set_ylim(0, max(ys) * 1.25)
-        ax.set_xticks(xs)
-        ax.set_xlim(-0.5, len(xs) - 0.5)
-        ax.set_title(title, color=t["ink"], fontsize=9.5, loc="left")
-        ax.set_xlabel("kept step", color=t["ink2"], fontsize=9)
-    fig.tight_layout()
+        tk = ticks(max(ys) * 1.15)
+        sy = lambda v: y0 - (v / tk[-1]) * (y0 - y1)  # noqa: E731
+        sx = lambda i: x0 + 8 + i * (x1 - x0 - 16) / (len(ys) - 1)  # noqa: E731
+        body.append(text(k * pw + 4, 16, title, t["ink"], 12))
+        for v in tk:
+            body.append(f'<line x1="{x0}" x2="{x1}" y1="{sy(v):.1f}" y2="{sy(v):.1f}" stroke="{t["grid"]}"/>')
+            body.append(text(x0 - 5, sy(v) + 4, f"{v:g}", t["ink2"], 10, "end"))
+        body.append(f'<line x1="{x0}" x2="{x1}" y1="{y0}" y2="{y0}" stroke="{t["axis"]}"/>')
+        for i in range(len(ys)):
+            body.append(text(sx(i), y0 + 14, str(i), t["ink2"], 10, "middle"))
+        body.append(text((x0 + x1) / 2, h - 6, "kept step", t["ink2"], 10, "middle"))
+        d = f"M{sx(0):.1f},{sy(ys[0]):.1f}" + "".join(f"H{sx(i):.1f}V{sy(ys[i]):.1f}" for i in range(1, len(ys)))
+        body.append(f'<path d="{d}" fill="none" stroke="{t["series"]}" stroke-width="2"/>')
+        for i, v in enumerate(ys):
+            body.append(f'<circle cx="{sx(i):.1f}" cy="{sy(v):.1f}" r="3.5" fill="{t["series"]}" '
+                        f'stroke="{t["surface"]}" stroke-width="2"/>')
+        for i in [0, len(ys) - 1]:
+            body.append(text(sx(i), sy(ys[i]) - 8, fmt.format(ys[i]), t["ink"], 10.5, "middle"))
     path = os.path.join(REPO, "docs", "img", f"loop-{tag}-{mode}.svg")
-    save(fig, path, t)
+    open(path, "w").write(svg(4 * pw, h, t, body))
     return path
 
 
@@ -116,24 +114,23 @@ def head_to_head_chart(tag, h, mode):
               ("latency, mean", "latency_mean_ms", "{:.0f} ms", "latency"),
               ("CPU per email", "cpu_ms_per_email", "{:.0f} ms", "cpu"),
               ("peak memory", "peak_mb", "{:,.0f} MB", "ram")]
-    fig, axes = plt.subplots(1, 4, figsize=(10, 1.9), facecolor=t["surface"])
-    for ax, (title, key, fmt, ratio) in zip(axes, panels):
-        style(ax, t)
-        ax.grid(False)
+    label_w, pw, height = 62, 174, 104
+    body = [text(label_w - 8, 50, "baseline", t["ink2"], 11, "end"),
+            text(label_w - 8, 84, "champion", t["ink2"], 11, "end")]
+    for k, (title, key, fmt, ratio) in enumerate(panels):
+        x0 = label_w + k * pw
         vals = [h["baseline"][key], h["champion"][key]]
-        bars = ax.barh([1, 0], vals, color=[t["muted"], t["series"]], height=0.62)
-        for b, v in zip(bars, vals):
-            ax.annotate(fmt.format(v), (b.get_width(), b.get_y() + b.get_height() / 2), xytext=(4, 0),
-                        textcoords="offset points", va="center", color=t["ink"], fontsize=9)
-        ax.set_yticks([1, 0], ["baseline", "champion"])
-        ax.set_xticks([])
-        ax.spines["bottom"].set_visible(False)
-        ax.set_xlim(0, max(vals) * 1.6)
         r = h["ratios"][ratio]["ratio"] if ratio else vals[1] / vals[0]
-        ax.set_title(f"{title}  ×{r:.2f}", color=t["ink"], fontsize=9.5, loc="left")
-    fig.tight_layout()
+        body.append(f'<text x="{x0}" y="16" font-size="12" fill="{t["ink"]}">{title} '
+                    f'<tspan fill="{t["ink2"]}">×{r:.2f}</tspan></text>')
+        scale = (pw - 74) / max(vals)
+        for j, (v, colour) in enumerate(zip(vals, [t["muted"], t["series"]])):
+            y = 33 + j * 34
+            body.append(f'<rect x="{x0}" y="{y}" width="{v * scale:.1f}" height="24" rx="2" fill="{colour}"/>')
+            body.append(text(x0 + v * scale + 5, y + 16.5, fmt.format(v), t["ink"], 11))
+        body.append(f'<line x1="{x0}" x2="{x0}" y1="28" y2="{height - 10}" stroke="{t["axis"]}"/>')
     path = os.path.join(REPO, "docs", "img", f"head-to-head-{tag}-{mode}.svg")
-    save(fig, path, t)
+    open(path, "w").write(svg(label_w + 4 * pw, height, t, body))
     return path
 
 

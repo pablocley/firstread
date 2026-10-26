@@ -15,4 +15,3 @@ onnxruntime==1.29.0
 onnx==1.23.2
 onnxscript==0.7.2
 sentencepiece==0.2.2
-matplotlib==3.11.2
