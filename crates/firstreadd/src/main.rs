@@ -5,7 +5,10 @@
 //! socket (a [`Decider`] with locality `LocalService`), one JSON record per decision appended
 //! to a records file, and with `--memory` the mailbox memory of `firstread-graph`: read on every
 //! delivery, updated after the reply is sent, and taught by the mailbox owner's actions through
-//! the feedback socket (`firstread feedback`, called by Dovecot IMAPSieve scripts, hook D).
+//! the feedback socket (`firstread feedback`, called by Dovecot IMAPSieve scripts, hook D). With
+//! `--dns-recorded` (recorded answers, the lab) or `--dns-live` (a stub resolver with a deadline
+//! per attempt and a budget per message), our own DKIM and DMARC checks run on every message, and
+//! every lookup goes into the record.
 //!
 //! Still to build (docs/01-architecture.md): the async queue for late results and tier 2, hook C
 //! updates, push-notification events (hook G), the HTTP API, load shedding and metrics.
@@ -33,7 +36,8 @@ use firstread_core::wire::{
 use firstread_graph::{
     Applied, FileStore, Hasher, MailboxMemory, MemoryEvent, MemoryStore, MessageKeys, SentKeys,
 };
-use firstread_pipeline::{Combiner, Config, Memory, Tier1};
+use firstread_net::{Budgeted, Dns, LiveDns, RecordedDns};
+use firstread_pipeline::{Checks, Clock, Combiner, Config, Memory, Tier1};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -57,6 +61,13 @@ struct Args {
     memory: Option<PathBuf>,
     feedback_socket: Option<PathBuf>,
     own_actors: Vec<String>,
+    dns_recorded: Vec<PathBuf>,
+    dns_window: Option<(u64, u64)>,
+    dns_live: bool,
+    dns_servers: Vec<std::net::SocketAddr>,
+    dns_timeout_ms: u64,
+    dns_budget_ms: u64,
+    clock_message: bool,
 }
 
 const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE] [--combiner FILE]
@@ -64,6 +75,8 @@ const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE]
   [--junk-threshold P] [--render-max-chars N] [--data-class public|synthetic|customer]
   [--sidecar-timeout-ms MS] [--shadow]
   [--memory DIR [--feedback-socket PATH] [--own-actors NAME,NAME]]
+  [--dns-recorded FILE ... [--dns-window FROM,TO] | --dns-live [--dns-server IP:PORT ...] [--dns-timeout-ms MS]]
+  [--dns-budget-ms MS] [--clock wall|message]
 
 --shadow: decide and record every message as usual, but reply with an empty directive, so the
 filter only removes foreign firstread headers and nothing is visible or filed
@@ -72,7 +85,19 @@ filter only removes foreign firstread headers and nothing is visible or filed
 --memory: per-mailbox memory (state and event log, keyed hashes only) in DIR; its facts
 (mailbox.*) join the combiner's inputs. --feedback-socket: where `firstread feedback` reports the
 mailbox owner's actions. --own-actors: actors whose feedback is firstread's own (for example the
-account hook C uses); it is dropped, never learned.";
+account hook C uses); it is dropped, never learned.
+
+--dns-recorded: run our own DKIM and DMARC checks against these DNS recordings (one lookup per
+line, firstread-net; may be given more than once: a name two files hold keeps the earlier
+file's answer). A name no recording holds is a temporary
+error, never \"no record\". --dns-window: the period the recordings stand for, Unix seconds; a
+message judged at a time outside it gets no answers (every lookup a temporary error), so today's
+keys and policies are never applied to old mail. --clock: the time signatures are judged at: wall
+(default) or message (the message's Date header; for replaying corpora only).
+
+--dns-live: run the checks against live DNS: the --dns-server resolvers, else the nameservers of
+/etc/resolv.conf; --dns-timeout-ms per attempt (default 400). --dns-budget-ms: most time one
+message may spend on DNS (default 800); after it, lookups are temporary errors.";
 
 fn parse_args() -> Result<Args, String> {
     let mut a = Args {
@@ -92,6 +117,13 @@ fn parse_args() -> Result<Args, String> {
         memory: None,
         feedback_socket: None,
         own_actors: vec![],
+        dns_recorded: vec![],
+        dns_window: None,
+        dns_live: false,
+        dns_servers: vec![],
+        dns_timeout_ms: 400,
+        dns_budget_ms: 800,
+        clock_message: false,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -136,6 +168,26 @@ fn parse_args() -> Result<Args, String> {
                     .filter(|s| !s.is_empty())
                     .collect();
             }
+            "--dns-recorded" => a.dns_recorded.push(val()?.into()),
+            "--dns-window" => a.dns_window = Some(firstread_net::parse_window(&val()?)?),
+            "--dns-live" => a.dns_live = true,
+            "--dns-server" => {
+                let v = val()?;
+                let addr = v
+                    .parse::<std::net::SocketAddr>()
+                    .or_else(|_| v.parse::<std::net::IpAddr>().map(|ip| (ip, 53).into()))
+                    .map_err(|e| format!("--dns-server {v}: {e}"))?;
+                a.dns_servers.push(addr);
+            }
+            "--dns-timeout-ms" => a.dns_timeout_ms = val()?.parse().map_err(|e| format!("{e}"))?,
+            "--dns-budget-ms" => a.dns_budget_ms = val()?.parse().map_err(|e| format!("{e}"))?,
+            "--clock" => {
+                a.clock_message = match val()?.as_str() {
+                    "wall" => false,
+                    "message" => true,
+                    other => return Err(format!("unknown clock {other}")),
+                };
+            }
             "--help" | "-h" => return Err(HELP.into()),
             other => return Err(format!("unknown flag {other}\n{HELP}")),
         }
@@ -148,6 +200,12 @@ fn parse_args() -> Result<Args, String> {
     }
     if a.feedback_socket.is_some() && a.memory.is_none() {
         return Err("--feedback-socket needs --memory".into());
+    }
+    if a.dns_live && !a.dns_recorded.is_empty() {
+        return Err("--dns-live and --dns-recorded exclude each other".into());
+    }
+    if a.dns_window.is_some() && a.dns_recorded.is_empty() {
+        return Err("--dns-window needs --dns-recorded".into());
     }
     Ok(a)
 }
@@ -319,6 +377,9 @@ struct State {
     records: Option<Mutex<BufWriter<File>>>,
     shadow: bool,
     memory: Option<Hub>,
+    dns: Option<Box<dyn Dns>>,
+    dns_budget: Duration,
+    clock_message: bool,
 }
 
 fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
@@ -369,6 +430,18 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         }),
         _ => None,
     };
+    let budgeted = state
+        .dns
+        .as_ref()
+        .map(|d| Budgeted::new(d.as_ref(), state.dns_budget));
+    let checks = budgeted.as_ref().map(|d| Checks {
+        dns: d as &dyn Dns,
+        clock: if state.clock_message {
+            Clock::MessageDate
+        } else {
+            Clock::At(u64::try_from(now()).unwrap_or(0))
+        },
+    });
     let mut out = firstread_pipeline::run(
         &state.cfg,
         &message,
@@ -376,6 +449,7 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         tier1,
         state.combiner.as_ref(),
         mem,
+        checks,
     );
     if let Some(e) = memory_error {
         out.record.provenance.errors.push(e);
@@ -501,6 +575,10 @@ fn run() -> Result<(), String> {
         _ => None,
     };
     let combiner = a.combiner.as_ref().map(load_json::<Combiner>).transpose()?;
+    if let Some(c) = &combiner {
+        c.check_directions()
+            .map_err(|e| format!("combiner {}: {e:?}", c.release))?;
+    }
     let records = a
         .records
         .as_ref()
@@ -513,6 +591,39 @@ fn run() -> Result<(), String> {
                 .map_err(|e| format!("{}: {e}", p.display()))
         })
         .transpose()?;
+    let dns: Option<Box<dyn Dns>> = if !a.dns_recorded.is_empty() {
+        let mut all = RecordedDns::new();
+        for p in &a.dns_recorded {
+            let r = RecordedDns::load(p).map_err(|e| format!("{}: {e}", p.display()))?;
+            eprintln!(
+                "firstreadd: {} recorded DNS answers from {}",
+                r.len(),
+                p.display()
+            );
+            all.extend(r);
+        }
+        if let Some((from, to)) = a.dns_window {
+            all.set_window(from, to);
+        }
+        Some(Box::new(all))
+    } else if a.dns_live {
+        let servers = if a.dns_servers.is_empty() {
+            LiveDns::servers_from_resolv_conf(std::path::Path::new("/etc/resolv.conf"))
+                .map_err(|e| format!("/etc/resolv.conf: {e}"))?
+        } else {
+            a.dns_servers.clone()
+        };
+        if servers.is_empty() {
+            return Err("--dns-live: no resolver configured".into());
+        }
+        eprintln!("firstreadd: live DNS via {servers:?}");
+        Some(Box::new(LiveDns::new(
+            servers,
+            Duration::from_millis(a.dns_timeout_ms),
+        )))
+    } else {
+        None
+    };
     let mac_key_bytes = a.mac_key.as_bytes().to_vec();
     let state = Arc::new(State {
         cfg: Config {
@@ -529,6 +640,9 @@ fn run() -> Result<(), String> {
         combiner,
         records,
         shadow: a.shadow,
+        dns,
+        dns_budget: Duration::from_millis(a.dns_budget_ms),
+        clock_message: a.clock_message,
         memory: match &a.memory {
             Some(dir) => {
                 // The memory key is derived from the deployment key, never the key itself.
