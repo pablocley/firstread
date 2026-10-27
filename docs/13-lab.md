@@ -167,9 +167,16 @@ notes as a proposal; it reaches the code through the normal review with fixtures
 
 The week-one test of [07](07-evaluation.md) runs on simulated mailboxes: messages are delivered in
 time order, simulated users react to them according to their labels (moving junk, rescuing mail,
-replying), with delays, and only some of the time. How often and how fast users react is an
-assumption, so learner changes must improve the cost under several user profiles, not one. Enron's
-per-user folders give real filing habits to test the folder-habit learner against.
+replying), with delays, and only some of the time. Built as `lab/harness/learning.py` for mailbox
+memory ([ADR-0018](decisions/0018-mailbox-memory-v0.md)): every train, calib and dev message in Date
+order to its own mailbox through the real filter and daemon, owners acting through the real
+`firstread feedback`, the combiner retrained with the `mailbox.*` inputs, dev scored against memory
+off, plus a poisoning check (one mailbox's owner labels everything junk; no other mailbox's decision
+may change). First results:
+[measurements/2026-10-27-mailbox-memory.md](measurements/2026-10-27-mailbox-memory.md). How often
+and how fast users react is an assumption, so learner changes must improve the cost under several
+user profiles, not one. Enron's per-user folders give real filing habits to test the folder-habit
+learner against.
 
 ## 8 · Status
 
@@ -186,7 +193,10 @@ ration and log, the scorer, the hash lock, the sidecar (four embedders; torch, O
 numpy; fp32 or int8; per-space cache), ONNX export with a parity check, the heads script, the loop
 helpers, the L2 setup.
 
-Not built yet: recorded lookups and the simulated clock and mailboxes (section 2), the learning
-test (section 7), L3 shadow beyond `firstreadd --shadow`, a separate Unix user for the sealed
-split and a champion comparison inside a sealed query (section 4). The only within-source labelled
-data is English from 2002 to 2005.
+Built on 2026-10-27: the learning test of section 7 for mailbox memory, with mailboxes on a
+simulated clock (Date order, owner delays), and hook D on Dovecot 2.3.21 (L2 case M).
+
+Not built yet: recorded lookups (section 2), a sealed counterpart of the learning test, L3 shadow
+beyond `firstreadd --shadow`, a separate Unix user for the sealed split and a champion comparison
+inside a sealed query (section 4). The only within-source labelled data is English from 2002 to
+2005.
