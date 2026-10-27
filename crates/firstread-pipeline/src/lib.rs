@@ -19,6 +19,7 @@ use firstread_core::directive::{
 use firstread_core::provider::{Calibration, DataClass, Decider, Rendered, decide};
 use firstread_core::tier::Tier;
 use firstread_core::wire::WireDirective;
+use firstread_graph::{Hasher, MailboxMemory, MessageKeys};
 use firstread_parse::Parsed;
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
@@ -393,6 +394,17 @@ pub struct Provenance {
     pub timings_us: BTreeMap<String, u64>,
     /// Errors that degraded the decision, by stage.
     pub errors: Vec<String>,
+    /// The mailbox memory snapshot that decided, when memory is on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot: Option<String>,
+}
+
+/// The recipient mailbox's memory, read before the message is applied to it.
+pub struct Memory<'a> {
+    /// Keyed hashing of identifiers.
+    pub hasher: &'a Hasher,
+    /// The mailbox's state.
+    pub state: &'a MailboxMemory,
 }
 
 /// What the pipeline produced.
@@ -401,6 +413,9 @@ pub struct Outcome {
     pub directive: Directive,
     /// The record.
     pub record: Record,
+    /// The message's memory keys (with memory on and the message parsed), for the caller to
+    /// apply the delivery to the mailbox's memory once the reply is sent.
+    pub keys: Option<MessageKeys>,
 }
 
 fn us(since: Instant) -> u64 {
@@ -425,12 +440,16 @@ fn mac_hex(key: &[u8], data: &str) -> String {
 
 /// Run one message through the pipeline. Never fails: a parse failure, a provider error or a
 /// combiner error degrades the decision (inbox, recorded), it never blocks delivery.
+///
+/// With `memory`, the mailbox facts (`mailbox.*`, `firstread-graph`) join the combiner's inputs
+/// and the record names the memory snapshot; the caller applies the delivery to memory afterwards.
 pub fn run(
     cfg: &Config,
     raw: &[u8],
     ctx: &DeliveryContext,
     tier1: Option<Tier1<'_>>,
     combiner: Option<&Combiner>,
+    memory: Option<Memory<'_>>,
 ) -> Outcome {
     let total = Instant::now();
     let key = idempotency_key(raw, &ctx.recipient);
@@ -450,6 +469,7 @@ pub fn run(
     let mut text_sha = None;
     let mut message_id_hash = None;
     let mut truncated = false;
+    let mut keys = None;
 
     match &parsed {
         Ok(p) => {
@@ -465,6 +485,13 @@ pub fn run(
             auth_map.insert("dkim".into(), auth.dkim.as_str().into());
             auth_map.insert("dmarc".into(), auth.dmarc.as_str().into());
             features = features_for(p, &auth);
+            if let Some(m) = &memory {
+                let identity_verified = auth.trusted && auth.dmarc == AuthResult::Pass;
+                let k = MessageKeys::from_parsed(m.hasher, p, identity_verified);
+                features.extend(m.state.facts(&k));
+                prov.snapshot = Some(m.state.snapshot());
+                keys = Some(k);
+            }
             prov.timings_us.insert("tier0".into(), us(t));
             prov.tiers.push(0);
 
@@ -591,7 +618,11 @@ pub fn run(
         directive: WireDirective::from_directive(&directive),
         provenance: prov,
     };
-    Outcome { directive, record }
+    Outcome {
+        directive,
+        record,
+        keys,
+    }
 }
 
 fn features_for(p: &Parsed, auth: &AuthSummary) -> BTreeMap<String, f64> {
@@ -667,20 +698,20 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        let a = run(&cfg(), PHISH, &ctx(), None, Some(&c));
+        let a = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
         assert_eq!(
             a.directive.folder.as_ref().map(FolderKey::as_str),
             Some("junk")
         );
         assert_eq!(a.record.p_junk.map(|p| p > 0.99), Some(true));
-        let b = run(&cfg(), PHISH, &ctx(), None, Some(&c));
+        let b = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
         assert_eq!(a.record.directive, b.record.directive);
         assert_eq!(a.record.id, b.record.id);
         let other_key = Config {
             mac_key: b"other".to_vec(),
             ..cfg()
         };
-        let d = run(&other_key, PHISH, &ctx(), None, Some(&c));
+        let d = run(&other_key, PHISH, &ctx(), None, Some(&c), None);
         assert_ne!(
             a.record.directive.add[0].value,
             d.record.directive.add[0].value
@@ -694,7 +725,7 @@ mod tests {
             bias: 0.0,
             weights: [("no.such.feature".to_string(), 1.0)].into_iter().collect(),
         };
-        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c));
+        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
         assert!(o.directive.folder.is_none());
         assert!(o.record.provenance.errors[0].contains("UnknownInput"));
     }
@@ -746,6 +777,7 @@ mod tests {
                 calibration: &cal,
             }),
             Some(&c),
+            None,
         );
         assert!((o.record.p_junk.unwrap() - 0.9526).abs() < 1e-3);
         assert_eq!(o.record.provenance.tiers, vec![0, 1]);
@@ -753,8 +785,70 @@ mod tests {
     }
 
     #[test]
+    fn mailbox_facts_reach_the_combiner_and_the_record_names_the_snapshot() {
+        let hasher = Hasher::new(b"memory-test");
+        let mut state = MailboxMemory::new();
+        let c = Combiner {
+            release: "combiner@mem".into(),
+            bias: 6.0,
+            weights: [("mailbox.sender_ok_log".to_string(), -20.0)]
+                .into_iter()
+                .collect(),
+        };
+        let first = run(
+            &cfg(),
+            PHISH,
+            &ctx(),
+            None,
+            Some(&c),
+            Some(Memory {
+                hasher: &hasher,
+                state: &state,
+            }),
+        );
+        assert_eq!(first.record.features["mailbox.first_contact"], 1.0);
+        assert_eq!(first.record.provenance.snapshot.as_deref(), Some("mem/0"));
+        assert!(first.directive.folder.is_some(), "unknown sender: junk");
+        let keys = first.keys.expect("keys with memory on");
+        state.apply(&firstread_graph::MemoryEvent::Label {
+            at: 1,
+            keys,
+            junk: false,
+        });
+        let second = run(
+            &cfg(),
+            PHISH,
+            &ctx(),
+            None,
+            Some(&c),
+            Some(Memory {
+                hasher: &hasher,
+                state: &state,
+            }),
+        );
+        assert!(second.record.features["mailbox.sender_ok_log"] > 0.0);
+        assert!(second.directive.folder.is_none(), "the owner said not junk");
+        assert_eq!(second.record.provenance.snapshot.as_deref(), Some("mem/1"));
+    }
+
+    #[test]
+    fn a_combiner_that_needs_memory_degrades_without_it() {
+        let c = Combiner {
+            release: "combiner@mem".into(),
+            bias: 3.0,
+            weights: [("mailbox.first_contact".to_string(), 1.0)]
+                .into_iter()
+                .collect(),
+        };
+        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
+        assert!(o.directive.folder.is_none());
+        assert!(o.record.provenance.errors[0].contains("mailbox.first_contact"));
+        assert!(o.keys.is_none() && o.record.provenance.snapshot.is_none());
+    }
+
+    #[test]
     fn parse_failure_is_recorded_and_never_files() {
-        let o = run(&cfg(), b"", &ctx(), None, None);
+        let o = run(&cfg(), b"", &ctx(), None, None, None);
         assert!(o.record.input.parse_failed);
         assert!(o.directive.folder.is_none());
         assert!(o.record.directive.add[0].value.contains("parse=failed"));
