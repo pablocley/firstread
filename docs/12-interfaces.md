@@ -263,6 +263,39 @@ versions and recorded lookups (not the content). Learning reads events, never th
 | commons indicators | gated, bad-only ([10-commons.md](10-commons.md)) |
 | outbound | milter return code at submission; JSON findings from `POST /v1/check-draft` |
 
+### 4.6 Feedback in: what the mailbox owner did (hook D)
+
+Learning reads what people do with their mail ([08](08-learning.md)), never the delivery path. In
+the default deployment the owner's actions arrive through Dovecot IMAPSieve (RFC 6785), the
+standard way to report spam and ham from IMAP moves:
+
+| owner's action | IMAPSieve rule | reported as |
+|---|---|---|
+| copies or moves a message into Junk | `imapsieve_mailboxN_name = Junk`, causes `COPY` | `junk` |
+| copies or moves a message out of Junk, except to Trash | `name = *`, `from = Junk`, causes `COPY` | `not_junk` |
+| a copy reaches Sent | `name = Sent`, causes `APPEND COPY` | `sent` |
+
+The scripts (`lab/l2/sieve/report-*.sieve`) pipe the message, with `imap.user`, to
+`firstread feedback`, which sends one frame to `firstreadd`'s feedback socket: `{"v": 1, "op":
+"junk" | "not_junk" | "sent" | "forget", "mailbox", "actor", "at", "message_len"}` followed by the
+message bytes; the reply says `applied`, `duplicate`, `dropped` or `forgotten`. The daemon parses
+the message, hashes its identifiers and applies the event to that mailbox's memory
+([ADR-0018](decisions/0018-mailbox-memory-v0.md)).
+
+- **Moving junk to Trash teaches nothing.** Deleting mail says nothing about whether it was wanted.
+- **firstread's own filing is not an action.** Delivery-time filing happens in LMTP, which does
+  not run IMAPSieve; feedback from actors listed in `--own-actors` is dropped. Hook C, when built,
+  uses `doveadm`, which does not run IMAPSieve either.
+- **The pipe never blocks the move.** The scripts use `pipe :try`: if firstread is down the owner's
+  move still happens; the label is lost, not the mail.
+- **Labels are reversible and counted once.** The same judgement twice is a duplicate; a reversed
+  judgement moves the count.
+- The IMAP login must be the same user name as delivery uses (`USER` at LMTP), so both name the
+  same memory.
+
+Verified on Dovecot 2.3.21 / Pigeonhole 0.5.21 with `MOVE` and with `COPY` plus expunge
+(`lab/l2/cases.py`, case M; `lab/results/l2-dovecot-2.3.21.txt`).
+
 ## 5 · Invariants (each one has a test)
 
 1. **Body bytes out equal body bytes in.** Only the header block is edited.
