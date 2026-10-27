@@ -6,7 +6,9 @@ never returns a rewritten message, and the body is never touched. Clients then o
 post-process and draft.
 
 Status: the delivery path, tier 0 and tier 1 run end to end in a lab, on public corpora and on real
-Dovecot 2.3.21. Not deployed. Learning, the API and tier 2 are designed, not built ([status](#status)).
+Dovecot 2.3.21. Not deployed. Mailbox memory and the owner's feedback from Dovecot are built and
+measured, not yet good enough to switch on; organisation and platform learning, the API and tier 2
+are designed, not built ([status](#status)).
 
 ## What is different
 
@@ -151,6 +153,25 @@ respond to λ (3 at 100, 1 at 999): they are confident mistakes, a model problem
 Limits: SpamAssassin is 2002–2005 English mail, the Dutch slice is synthetic, and the
 false-positive side rests on 49 dev and 25 sealed hard-ham messages.
 
+## Mailbox memory (lab, 2026-10-27)
+
+Per mailbox, firstread remembers what was delivered and what the owner did: moved into Junk, out of
+Junk, or wrote to someone (Dovecot IMAPSieve, real Dovecot 2.3.21). Addresses, Message-IDs and IBANs
+are stored as keyed hashes only. Memory adds inputs to the combiner, fitted on top of the combiner
+without memory, so mail from a stranger is decided exactly as before (checked on the 385 dev
+messages without history).
+
+| owners (simulated, act on true labels) | Δ cost per 1,000 vs memory off (dev), CI95 | legitimate newly in Junk |
+|---|---|---|
+| active: 80 % of junk moved, 90 % rescued, 10 % replied | −8.3 [−14.5, −2.1] | 0 |
+| passive: 30 %, 50 %, no replies | −2.1 [−8.3, +3.1] | 0 |
+| never act | +4.1 [+1.0, +8.3] | 0 |
+
+Not kept: the rule asks for a gain under several owner profiles, and with owners who never act,
+delivery counts alone cost spam caught. Not safe to switch on either: history keys on the From
+address, so it must first be tied to verified identity. One mailbox never affects another
+(poisoning check: 0.0). [Measurement](docs/measurements/2026-10-27-mailbox-memory.md).
+
 ## Status
 
 | built and measured | designed, not built |
@@ -158,7 +179,8 @@ false-positive side rests on 49 dev and 25 sealed hard-ham messages.
 | parser, tier-0 facts, IBAN mod-97, link analysis, trusted `Authentication-Results` | SPF/DKIM/DMARC/ARC evaluation with recorded DNS |
 | provider contract, calibration, combiner, stamp with HMAC, record | tier 2 (decoder model) and the async queue |
 | `firstread-filter` (fallback, deadline), `firstreadd` (sidecar, records, `--shadow`) | API (JMAP shapes), MCP server, safety block |
-| lab: L1 harness, L2 on Dovecot 2.3.21, three-axis loop, sealed split | learning per mailbox / organisation / platform, commons |
+| lab: L1 harness, L2 on Dovecot 2.3.21, three-axis loop, sealed split | learning per organisation / platform, commons |
+| mailbox memory (keyed hashes, event log), owner feedback via IMAPSieve (hook D), learning test | memory history read only for verified identities; hook C, digest |
 
 ## Repository
 
