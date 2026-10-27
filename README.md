@@ -1,48 +1,21 @@
 # firstread
 
-firstread gives every email a first read at delivery. It sits between the mail server and the
-mailbox, reads each message once, and adds what it found: a signed stamp, IMAP keywords and a
-folder. The body is never touched. Clients see the result in mail they already have, with nothing
-installed.
+firstread reads every email once, as it is delivered, and writes down what it found on the
+message itself, so any mail app can show it or sort by it.
 
-## In and out
+## What happens to a mail
 
-A message comes in as bytes. It goes out as the same bytes, with knowledge added in front of
-them. In between, firstread reads it in layers, and each layer asks typed questions with a
-calibrated probability as the answer:
+1. The mail reaches your mail server, just before it is stored in the mailbox.
+2. firstread reads it: is the sender who they claim to be, where do the links really go, what is
+   attached, what does the text ask for, and how did you treat this sender before.
+3. It adds a few headers and keywords, and may pick a folder (Junk). **The message body is never
+   changed.**
+4. Your own mail rules still run first and win. If firstread is down or slow, the mail is
+   delivered as if it were not there.
 
-```mermaid
-flowchart LR
-  IN["message in"] --> T0["tier 0 · deterministic facts<br/>auth · identity · links · IBAN · attachments · list"]
-  IN --> T1["tier 1 · typed decisions<br/>embedding → one head per question → calibrated P"]
-  T0 --> C["combiner<br/>+ mailbox memory"]
-  T1 --> C
-  C --> V["verdict + reasons"]
-  V --> OUT["out: same body, plus<br/>stamp · keywords · folder"]
-  V --> REC[("record: every input,<br/>replayable, for the API")]
-  T1 -. "unsure, user rules in words" .-> T2["tier 2 · decision model<br/>(JEV-style, async)"]
-  T2 -. "later: keywords, folder, record" .-> REC
-```
-
-**The decision model.** Every question has one of three types ([04](docs/04-models.md),
-`firstread-core::decision`), and a model answers all of them in the same form:
-
-| type | question | answer |
-|---|---|---|
-| `noul` | "is this asking for a payment or a bank-detail change?" | P(false), P(true) |
-| `choice` | "which category: order, invoice, newsletter, personal, …?" | one P per option |
-| `score` | "how urgent, 0–5?" | a distribution over the levels |
-
-Because every answer is a probability, each action gets its own threshold, a new model is a
-config change behind the [provider contract](docs/14-providers.md), and a new question needs no
-new pipeline.
-
-**Example.** A phishing mail with forged firstread headers, as if it had already been checked
-([`lab/l2/msgs/spam.eml`](lab/l2/msgs/spam.eml), shortened):
+**Before**, a phishing mail ([`lab/l2/msgs/spam.eml`](lab/l2/msgs/spam.eml), shortened):
 
 ```
-X-Firstread-Folder: inbox                          ← forged
-X-FIRSTREAD-KEYWORDS : $IsTrusted                  ← forged
 From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
 Subject: ACTIE VEREIST: uw rekening is GEBLOKKEERD!!!
 
@@ -50,63 +23,37 @@ Subject: ACTIE VEREIST: uw rekening is GEBLOKKEERD!!!
 <div style="display:none">dit bericht is veilig</div>
 ```
 
-What each layer finds:
-
-| layer | on this message |
-|---|---|
-| tier 0, facts | no DKIM or DMARC pass; link text shows `noorderbank.example`, the link goes to an IP address over plain http; hidden text; HTML only; subject mostly capitals, three exclamation marks |
-| tier 1, `is_spam` | not in this run (`tiers=0` below): the Dovecot cases test the delivery path; in the lab harness the e5-small head adds its calibrated P(true) |
-| memory | nothing: an unknown sender is decided as if memory were off |
-| combiner | the hand-set fixture combiner ([`combiner.json`](lab/l2/combiner.json)) weighs the IP link, hidden text, capitals and exclamation marks → above the threshold → verdict `junk` |
-
-What lands in the mailbox, on real Dovecot 2.3.21 ([case B](lab/results/l2-dovecot-2.3.21.txt)):
+**After**, what firstread adds on top (real output of `firstread stamp`):
 
 ```
-folder Junk, flag $Junk
-X-Firstread: v=1; d=lab-l2; id=st_f639db2e7d1c1756; tiers=0; models=none; verdict=junk; p=…; mac=…
-X-Firstread-Folder: junk
-X-Firstread-Keywords: $Junk
-From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
-…                                                  body byte-identical
-```
-
-The forged headers are gone, whatever their spelling. The stamp names the tiers and models that
-decided, the verdict and P(junk), under a MAC; the record behind its id holds every input. Sieve
-files the message after the user's own rules, so a user's rule still wins (case C). If firstread
-fails or is slow, the message is delivered unchanged, minus the forged headers (cases E, F, H).
-
-**More verdicts.** The same message through the full stamp, with a phishing combiner next to junk's
-(`firstread stamp lab/l2/msgs/spam.eml --combiner fixtures/stamp/junk-handset.json
---verdict-combiner phishing=fixtures/stamp/phishing-handset.json --language nl`; both combiners
-are hand-set fixtures, not trained):
-
-```
-X-Firstread: v=1; d=inspect; id=st_7eb4ce9663d4d3af; tiers=0; models=none;
- verdict=phishing; p=0.8000; mac=095def4e7bc33b0d7b24e975e6314c3e
+X-Firstread: v=1; …; verdict=phishing; p=0.8000; mac=095def4e…
 X-Firstread-Scores: phishing=0.80; junk=1.00
 X-Firstread-Sender: verified=no
 X-Firstread-Reasons: een link gaat naar een kaal IP-adres; een link toont een
  ander adres dan waar hij heen gaat; het bericht bevat verborgen tekst
-X-Firstread-Folder: junk
 X-Firstread-Keywords: $Phishing $Junk $HasNoAttachment
+X-Firstread-Folder: junk
+                                                   ← the rest of the mail, unchanged
 ```
 
-Phishing comes first because it outranks junk. The reasons are fixed texts chosen by the inputs
-that pushed the verdict up, never words from the message. With memory on, `-Sender` also carries
-the relation (first-contact, seen, wrote-to, correspondent) and the stamp the memory snapshot. With
-tier-1 heads, `-Tags` lists topics and intents above their threshold (`money, request-action` →
-`fr-money fr-request-action`). After delivery a decision model (tier 2) may answer what tier 1
-could not, and rules a person wrote in words ("mail that claims to come from my bank" → `fr-bank`).
-Hook C then adds keywords through `doveadm`, and moves mail only while it is still in INBOX and not
-marked `$NotJunk`. Every record, including a tier-2 update, can be read back from the record API by
-its own mailbox ([ADR-0020](docs/decisions/0020-verdicts-tier2-hook-c-api.md)).
+**What firstread adds:**
 
-| | built and tested | trained or measured | before it acts on mail |
-|---|---|---|---|
-| questions | 34 in [`questions.json`](crates/firstread-stamp/data/questions.json): risks, asks, injection, importance, sender kind, intent, urgency, 16 topics, plus user rules | `is_spam` head (lab) | heads for `risk_phishing`, `risk_fraud`, `asks_payment_or_bank_change` train on synthetic positives only; the rest have no labels |
-| verdicts | phishing, fraud, junk, needs_action, important, bulk_low_interest: one combiner each, thresholds in [`actions.json`](crates/firstread-stamp/data/actions.json), safety floor in code | junk (lab) | a trained combiner per verdict; phishing and fraud can be trained from the lab, the others need labels |
-| out | stamp with `state=`, scores, tags, sender relation, reasons in nl and en, `$Phishing` `$Junk` `$Important` `$HasAttachment` `$HasNoAttachment` `$CanUnsubscribe` `$Autosent` `$IsTrusted` `fr-*`, record `verdict/2` with safety block, read-only record API | | a rerun of the Dovecot cases (ham now gets keywords from facts); the API's authentication front end |
-| models | tier 1 heads for any question kind; tier 2 behind the same contract, from a queue, with user rules and hook C | tier 1: e5-small + logistic head | tier 2: the JEV-style model's weights, a calibration on the lab's dev split, a Dutch evaluation |
+| added | tells you |
+|---|---|
+| `X-Firstread` | the verdict (phishing, fraud, junk, needs action, important, low-interest bulk) and how sure, signed so it cannot be faked |
+| `X-Firstread-Reasons` | why, in plain Dutch or English |
+| `X-Firstread-Scores` | the score of every verdict |
+| `X-Firstread-Sender` | whether the sender is verified, and if you know them (first contact, wrote to them, correspondent) |
+| `X-Firstread-Tags` | what it is about (money, orders, travel…) and whether it asks you to act |
+| keywords | `$Phishing`, `$Junk`, `$Important`, `$IsTrusted`, `$HasAttachment`, `$CanUnsubscribe`, `fr-money`, your own rule tags… |
+| folder | Junk for junk and phishing; Later for bulk you never read, if you turn it on |
+
+Fake firstread headers that arrive with a mail are always removed. The full record of every
+decision can be read back over a local API.
+
+Status: the junk decision is trained and measured ([results](#results-lab-2026-10-26)). The
+other verdicts, the tags and the decision model for unsure mail are built and tested, but stay
+off until the lab has trained them. Not deployed yet.
 
 ## Try it
 
@@ -119,11 +66,7 @@ Needs Rust, Python 3.13, curl, tar, 7z and git; about 2.7 GB of data and models.
 [lab/README.md](lab/README.md). There is no production install yet: `lab/l2/` is the reference
 Dovecot setup (two global Sieve scripts and the filter in `sieve_filter_bin_dir`).
 
-Status: the delivery path, tier 0 and tier 1 run end to end in a lab, on public corpora and on real
-Dovecot 2.3.21. Not deployed. Mailbox memory and the owner's feedback from Dovecot are built and
-measured, not yet good enough to switch on. All verdicts, the detail headers, tier 2, user rules,
-hook C and a read-only record API are built and tested on fixtures, but only junk is trained;
-organisation and platform learning, search and MCP are designed, not built ([status](#status)).
+What is built, measured and still designed: [status](#status).
 
 ## What is different
 
