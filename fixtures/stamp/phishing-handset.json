@@ -1,0 +1,11 @@
+{
+ "release": "combiner:phishing-fixture-handset-1",
+ "bias": -7.0,
+ "weights": {
+  "body.hidden_styles_log": 2.0,
+  "links.ip_literal": 4.0,
+  "links.text_target_mismatch": 3.0,
+  "sender.display_address_mismatch": 2.0,
+  "auth.dmarc_fail": 2.0
+ }
+}

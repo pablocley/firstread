@@ -46,6 +46,9 @@ pub struct Parsed {
     pub list_unsubscribe: bool,
     /// Whether `List-Unsubscribe-Post` (RFC 8058 one-click) is present.
     pub list_unsubscribe_post: bool,
+    /// Whether `Auto-Submitted` (RFC 3834) says the message was generated automatically: any
+    /// value but `no`.
+    pub auto_submitted: bool,
     /// Raw `Authentication-Results` values, top first.
     pub auth_results: Vec<String>,
     /// Number of `Received` fields.
@@ -327,6 +330,16 @@ pub fn parse(raw: &[u8]) -> Result<Parsed, ParseError> {
             .headers()
             .iter()
             .any(|h| h.name().eq_ignore_ascii_case("List-Unsubscribe-Post")),
+        auto_submitted: msg.header_raw("Auto-Submitted").is_some_and(|v| {
+            let v = v.trim();
+            !v.is_empty()
+                && !v
+                    .split(';')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .eq_ignore_ascii_case("no")
+        }),
         auth_results,
         received_count: msg.received_all().count(),
         date: msg.date().map(|d| d.to_timestamp()),
@@ -360,6 +373,21 @@ mod tests {
     use super::*;
 
     const PLAIN: &[u8] = b"From: \"Jan de Vries\" <Jan@Example.NL>\r\nReply-To: other@free.example\r\nTo: you@example.org\r\nSubject: =?UTF-8?Q?Factuur_m=C3=A4rz?=\r\nDate: Thu, 22 Oct 2026 10:45:15 +0200\r\nMessage-ID: <a@b>\r\nAuthentication-Results: mx.example.org; spf=pass smtp.mailfrom=example.nl\r\n\r\nHallo,\r\nzie https://example.nl/factuur?id=1.\r\n> oud bericht\r\n";
+
+    #[test]
+    fn auto_submitted_is_any_value_but_no() {
+        let p = |h: &str| {
+            parse(format!("From: a@x.example\r\n{h}Subject: x\r\n\r\nx\r\n").as_bytes())
+                .unwrap()
+                .auto_submitted
+        };
+        assert!(p("Auto-Submitted: auto-generated\r\n"));
+        assert!(p(
+            "Auto-Submitted: auto-replied; owner-email=a@x.example\r\n"
+        ));
+        assert!(!p("Auto-Submitted: No\r\n"));
+        assert!(!p(""));
+    }
 
     #[test]
     fn list_id_is_read() {

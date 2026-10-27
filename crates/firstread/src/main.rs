@@ -20,7 +20,12 @@
 //!   socket, the message on stdin (not for `--forget`). Dovecot IMAPSieve scripts call it when
 //!   the owner moves mail into or out of Junk or a copy reaches Sent (hook D, lab/l2/).
 //!
-//! Planned (docs/13-lab.md, docs/07-evaluation.md): `stamp`, `check-draft`, `eval`, `replay`.
+//! - `firstread stamp <file.eml> [--combiner FILE] [--verdict-combiner KIND=FILE ...]
+//!   [--junk-threshold P] [--folders KEY,KEY] [--language TAG] [--trusted-authserv ID,ID]`: run one
+//!   message through the pipeline (tier 0 and the given combiners; no tier 1, no memory) and
+//!   print the headers, keywords and folder firstread would add, then the record
+//!
+//! Planned (docs/13-lab.md, docs/07-evaluation.md): `check-draft`, `eval`, `replay`.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
@@ -170,6 +175,97 @@ fn auth_batch(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+const STAMP_USAGE: &str = "usage: firstread stamp <file.eml> [--combiner FILE] \
+[--verdict-combiner KIND=FILE ...] [--junk-threshold P] [--folders KEY,KEY] [--language TAG] \
+[--trusted-authserv ID,ID]";
+
+fn load_combiner(path: &str) -> Result<firstread_pipeline::Combiner, String> {
+    let f = std::fs::File::open(path).map_err(|e| format!("{path}: {e}"))?;
+    serde_json::from_reader(f).map_err(|e| format!("{path}: {e}"))
+}
+
+fn stamp(args: &[String]) -> Result<(), String> {
+    use firstread_core::directive::{DirectivePolicy, FolderKey};
+    use firstread_core::verdict::VerdictKind;
+    let path = args
+        .first()
+        .filter(|a| !a.starts_with("--"))
+        .ok_or(STAMP_USAGE)?;
+    let raw = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+    let junk = flag_value(args, "--combiner")
+        .map(|p| load_combiner(&p))
+        .transpose()?;
+    let mut verdicts = std::collections::BTreeMap::new();
+    for v in flag_values(args, "--verdict-combiner") {
+        let (k, f) = v.split_once('=').ok_or(STAMP_USAGE)?;
+        let kind = VerdictKind::parse(k).ok_or_else(|| format!("unknown verdict {k}"))?;
+        let c = load_combiner(f)?;
+        if kind.has_safety_floor() {
+            c.check_safety_floor().map_err(|e| format!("{f}: {e:?}"))?;
+        }
+        verdicts.insert(kind, c);
+    }
+    let threshold: f64 = flag_value(args, "--junk-threshold")
+        .map(|v| v.parse().map_err(|e| format!("--junk-threshold: {e}")))
+        .transpose()?
+        .unwrap_or(0.99);
+    let mut policy = DirectivePolicy::default();
+    if let Some(f) = flag_value(args, "--folders") {
+        policy.allowed_folders = f
+            .split(',')
+            .map(|k| FolderKey::new(k).map_err(|e| format!("--folders: {e}")))
+            .collect::<Result<_, _>>()?;
+    }
+    let cfg = firstread_pipeline::Config {
+        deployment: "inspect".into(),
+        mac_key: b"inspect".to_vec(),
+        trusted_authserv_ids: flag_value(args, "--trusted-authserv")
+            .map(|v| v.split(',').map(str::to_string).collect())
+            .unwrap_or_default(),
+        questions: firstread_stamp::questions(),
+        verdicts,
+        stamp: firstread_pipeline::StampConfig {
+            actions: firstread_stamp::Actions::default().with_junk_threshold(threshold),
+            language: flag_value(args, "--language").unwrap_or_else(|| "en".into()),
+            ..firstread_pipeline::StampConfig::default()
+        },
+        render_max_chars: 2000,
+        data_class: firstread_core::provider::DataClass::Public,
+        policy: policy.clone(),
+    };
+    let ctx = firstread_core::context::DeliveryContext::from_dovecot_env(|k| match k {
+        "USER" | "RECIPIENT" => Some("inspect@localhost".into()),
+        _ => None,
+    })
+    .map_err(|e| format!("{e:?}"))?;
+    let o = firstread_pipeline::run(&cfg, &raw, &ctx, None, junk.as_ref(), None, None);
+    let mut out = std::io::stdout().lock();
+    for h in o
+        .directive
+        .add
+        .iter()
+        .chain(o.directive.derived_headers(&policy).iter())
+    {
+        out.write_all(&h.render(b"\n")).map_err(|e| e.to_string())?;
+    }
+    writeln!(
+        out,
+        "\nfolder: {}\nkeywords: {}\n\n{}",
+        o.directive
+            .folder
+            .as_ref()
+            .map_or("(none: INBOX or the user's rules)", |f| f.as_str()),
+        o.directive
+            .keywords
+            .iter()
+            .map(|k| k.as_str())
+            .collect::<Vec<_>>()
+            .join(" "),
+        serde_json::to_string_pretty(&o.record).map_err(|e| e.to_string())?
+    )
+    .map_err(|e| e.to_string())
+}
+
 const FEEDBACK_USAGE: &str = "usage: firstread feedback --socket PATH --mailbox USER \
 (--junk|--not-junk|--sent|--forget) [--actor NAME] [--at UNIX] < message";
 
@@ -233,10 +329,9 @@ fn main() -> ExitCode {
         "render-batch" => render_batch(rest),
         "auth-batch" => auth_batch(rest),
         "feedback" => feedback(rest),
-        "stamp" | "check-draft" | "eval" | "replay" => {
-            Err(format!("firstread {cmd}: not implemented yet"))
-        }
-        _ => Err("usage: firstread <inspect|render-batch|auth-batch|feedback> ...".into()),
+        "stamp" => stamp(rest),
+        "check-draft" | "eval" | "replay" => Err(format!("firstread {cmd}: not implemented yet")),
+        _ => Err("usage: firstread <inspect|render-batch|auth-batch|feedback|stamp> ...".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

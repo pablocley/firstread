@@ -124,6 +124,11 @@ fn outcomes(q: &Question) -> usize {
     }
 }
 
+/// Question ids of user rules written in words start with this (`rule:<id>`).
+pub const RULE_PREFIX: &str = "rule:";
+/// The calibration entry that serves every user rule.
+pub const RULE_CLASS: &str = "rule:*";
+
 /// Temperatures fitted per question for one release, on the lab's dev split.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Calibration {
@@ -146,6 +151,27 @@ impl Calibration {
         self.temperatures.insert(question, temperature);
     }
 
+    /// The temperature for a question. A user rule (`rule:<id>`) has no calibration of its own:
+    /// it takes the one fitted for rules as a class (`rule:*`, on the lab's rule set), if any.
+    fn temperature(&self, question: &QuestionId) -> Option<f32> {
+        self.temperatures.get(question).copied().or_else(|| {
+            question
+                .0
+                .starts_with(RULE_PREFIX)
+                .then(|| {
+                    self.temperatures
+                        .get(&QuestionId(RULE_CLASS.into()))
+                        .copied()
+                })
+                .flatten()
+        })
+    }
+
+    /// Whether this calibration can turn the question's logits into a decision.
+    pub fn has(&self, question: &QuestionId) -> bool {
+        self.temperature(question).is_some()
+    }
+
     /// Turn raw logits into a calibrated distribution, or refuse without a fitted temperature.
     pub fn apply(
         &self,
@@ -156,10 +182,9 @@ impl Calibration {
             return Err(ProviderError::Shape(question.id.clone()));
         }
         let t = self
-            .temperatures
-            .get(&question.id)
+            .temperature(&question.id)
             .ok_or_else(|| ProviderError::Uncalibrated(question.id.clone()))?;
-        Distribution::from_logits(logits, *t).map_err(ProviderError::Distribution)
+        Distribution::from_logits(logits, t).map_err(ProviderError::Distribution)
     }
 }
 
@@ -401,6 +426,16 @@ mod tests {
             ),
             Err(ProviderError::NotAllowed(_))
         ));
+    }
+
+    #[test]
+    fn user_rules_share_the_class_calibration_and_nothing_else_does() {
+        let q = noul("rule:refunds");
+        assert!(!calibrated(&[]).has(&q.id));
+        let c = calibrated(&[RULE_CLASS]);
+        assert!(c.has(&q.id));
+        assert!(c.apply(&q, &[0.0, 1.0]).is_ok());
+        assert!(!c.has(&QuestionId("asks_payment".into())));
     }
 
     #[test]

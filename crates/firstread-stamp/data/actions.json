@@ -1,0 +1,85 @@
+{
+ "_note": "What each verdict does once its calibrated probability reaches a threshold (docs/02-signals.md, Verdicts). keyword: set the keywords; folder: file into folder_key, if the mailbox mode allows it. Junk's thresholds are replaced by the deployment's cost-derived threshold (firstreadd --junk-threshold). The other numbers are starting values, not measurements: each is set in the lab before its verdict drives anything for customers (docs/07-evaluation.md).",
+ "verdicts": {
+  "phishing": {
+   "keyword": 0.5,
+   "folder": 0.95,
+   "keywords": [
+    "$Phishing"
+   ],
+   "folder_key": "junk"
+  },
+  "fraud": {
+   "keyword": 0.5,
+   "keywords": [
+    "$Phishing",
+    "fr-fraud"
+   ]
+  },
+  "junk": {
+   "keyword": 0.99,
+   "folder": 0.99,
+   "keywords": [
+    "$Junk"
+   ],
+   "folder_key": "junk"
+  },
+  "needs_action": {
+   "keyword": 0.7,
+   "keywords": [
+    "fr-needs-action"
+   ]
+  },
+  "important": {
+   "keyword": 0.7,
+   "keywords": [
+    "$Important"
+   ]
+  },
+  "bulk_low_interest": {
+   "keyword": 0.8,
+   "folder": 0.9,
+   "keywords": [
+    "fr-later"
+   ],
+   "folder_key": "later"
+  }
+ },
+ "tags": {
+  "threshold": 0.7,
+  "questions": {
+   "topic_money": "money",
+   "topic_orders": "orders",
+   "topic_travel": "travel",
+   "topic_account": "account",
+   "topic_work": "work",
+   "topic_customers": "customers",
+   "topic_government": "government",
+   "topic_health": "health",
+   "topic_education": "education",
+   "topic_social": "social",
+   "topic_calendar": "calendar",
+   "topic_news": "news",
+   "topic_promotions": "promotions",
+   "topic_jobs": "jobs",
+   "topic_legal": "legal",
+   "topic_personal": "personal"
+  },
+  "choices": {
+   "intent": {
+    "request_action": "request-action",
+    "request_reply": "request-reply"
+   }
+  }
+ },
+ "_fact_keywords": "Keywords set from deterministic facts, not from a verdict; leave one out to switch it off.",
+ "fact_keywords": [
+  "$HasAttachment",
+  "$HasNoAttachment",
+  "$CanUnsubscribe",
+  "$Autosent",
+  "$IsTrusted",
+  "fr-first-contact"
+ ],
+ "reasons_max": 3
+}

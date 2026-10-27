@@ -12,6 +12,7 @@ firstread-auth.workspace = true
 firstread-net.workspace = true
 firstread-links.workspace = true
 firstread-graph.workspace = true
+firstread-stamp.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

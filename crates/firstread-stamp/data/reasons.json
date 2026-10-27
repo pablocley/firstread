@@ -1,0 +1,174 @@
+{
+ "_note": "Which input of a verdict's combiner is shown as which reason, and the reason's text per language. An input without an entry is never shown. Only inputs that pushed the verdict up count.",
+ "inputs": {
+  "links.ip_literal": "link_to_ip",
+  "links.text_target_mismatch": "link_text_differs",
+  "links.shortener": "link_shortener",
+  "links.punycode": "link_punycode",
+  "body.hidden_styles_log": "hidden_text",
+  "body.zero_width_log": "hidden_text",
+  "sender.display_address_mismatch": "display_name_address",
+  "sender.reply_to_other_domain": "reply_to_elsewhere",
+  "attach.executable": "attachment_executable",
+  "attach.html": "attachment_html",
+  "auth.dmarc_fail": "auth_failed",
+  "auth.dkim_fail": "auth_failed",
+  "auth.spf_fail": "auth_failed",
+  "auth.own_dkim_fail": "auth_failed",
+  "auth.own_unaligned_enforced": "auth_failed",
+  "subject.caps_ratio": "shouting_subject",
+  "subject.exclamations": "shouting_subject",
+  "mailbox.first_contact": "first_contact",
+  "mailbox.iban_new_for_domain": "iban_new",
+  "mailbox.spoof_of_verified": "spoof_of_known",
+  "mailbox.sender_junk_log": "you_junked_sender",
+  "mailbox.domain_junk_log": "you_junked_domain",
+  "mailbox.unknown_thread": "fake_reply",
+  "head.is_spam.logit": "reads_like_spam",
+  "head.risk_phishing.logit": "reads_like_phishing",
+  "head.risk_fraud.logit": "reads_like_fraud",
+  "head.asks_credentials.logit": "asks_credentials",
+  "head.asks_payment_or_bank_change.logit": "asks_payment",
+  "head.asks_gift_cards.logit": "asks_gift_cards",
+  "head.asks_remote_access.logit": "asks_remote_access",
+  "head.asks_secrecy.logit": "asks_secrecy",
+  "head.important.logit": "reads_important",
+  "head.intent.request_action": "asks_action",
+  "head.intent.request_reply": "asks_reply",
+  "head.urgency.expected": "urgent",
+  "mailbox.wrote_to_sender": "you_wrote_to_sender",
+  "mailbox.reply_to_sent": "reply_to_your_mail",
+  "list.unsubscribe": "newsletter",
+  "list.id": "newsletter"
+ },
+ "texts": {
+  "link_to_ip": {
+   "en": "a link goes to a bare IP address",
+   "nl": "een link gaat naar een kaal IP-adres"
+  },
+  "link_text_differs": {
+   "en": "a link shows one address and goes to another",
+   "nl": "een link toont een ander adres dan waar hij heen gaat"
+  },
+  "link_shortener": {
+   "en": "a link is hidden behind a link shortener",
+   "nl": "een link zit achter een linkverkorter"
+  },
+  "link_punycode": {
+   "en": "a link uses look-alike characters",
+   "nl": "een link gebruikt lijkende tekens"
+  },
+  "hidden_text": {
+   "en": "the message contains hidden text",
+   "nl": "het bericht bevat verborgen tekst"
+  },
+  "display_name_address": {
+   "en": "the sender's name shows another address than the real one",
+   "nl": "de naam van de afzender toont een ander adres dan het echte"
+  },
+  "reply_to_elsewhere": {
+   "en": "replies go to another domain than the sender's",
+   "nl": "antwoorden gaan naar een ander domein dan dat van de afzender"
+  },
+  "attachment_executable": {
+   "en": "an attachment is a program",
+   "nl": "een bijlage is een programma"
+  },
+  "attachment_html": {
+   "en": "an attachment is a web page",
+   "nl": "een bijlage is een webpagina"
+  },
+  "auth_failed": {
+   "en": "the sender's domain did not confirm it sent this",
+   "nl": "het domein van de afzender bevestigt niet dat het dit verstuurde"
+  },
+  "shouting_subject": {
+   "en": "the subject shouts",
+   "nl": "het onderwerp schreeuwt"
+  },
+  "first_contact": {
+   "en": "first mail from this sender",
+   "nl": "eerste mail van deze afzender"
+  },
+  "iban_new": {
+   "en": "a bank account this sender never used before",
+   "nl": "een rekeningnummer dat deze afzender nooit eerder gebruikte"
+  },
+  "spoof_of_known": {
+   "en": "looks like a sender you know, but is not verified",
+   "nl": "lijkt op een bekende afzender, maar is niet geverifieerd"
+  },
+  "you_junked_sender": {
+   "en": "you marked mail from this sender as junk",
+   "nl": "u markeerde mail van deze afzender als ongewenst"
+  },
+  "you_junked_domain": {
+   "en": "you marked mail from this domain as junk",
+   "nl": "u markeerde mail van dit domein als ongewenst"
+  },
+  "fake_reply": {
+   "en": "claims to reply to a conversation you were not in",
+   "nl": "doet alsof het een antwoord is op een gesprek waar u niet in zat"
+  },
+  "reads_like_spam": {
+   "en": "reads like unwanted bulk mail",
+   "nl": "leest als ongewenste massamail"
+  },
+  "reads_like_phishing": {
+   "en": "reads like phishing",
+   "nl": "leest als phishing"
+  },
+  "reads_like_fraud": {
+   "en": "reads like payment fraud",
+   "nl": "leest als betalingsfraude"
+  },
+  "asks_credentials": {
+   "en": "asks you to log in or give a code",
+   "nl": "vraagt u in te loggen of een code te geven"
+  },
+  "asks_payment": {
+   "en": "asks for a payment or changed bank details",
+   "nl": "vraagt om een betaling of gewijzigde bankgegevens"
+  },
+  "asks_gift_cards": {
+   "en": "asks for gift cards",
+   "nl": "vraagt om cadeaukaarten"
+  },
+  "asks_remote_access": {
+   "en": "asks for access to your computer",
+   "nl": "vraagt toegang tot uw computer"
+  },
+  "asks_secrecy": {
+   "en": "asks you to keep it quiet or skip checks",
+   "nl": "vraagt het stil te houden of controles over te slaan"
+  },
+  "reads_important": {
+   "en": "reads as important",
+   "nl": "leest als belangrijk"
+  },
+  "asks_action": {
+   "en": "asks you to do something",
+   "nl": "vraagt u iets te doen"
+  },
+  "asks_reply": {
+   "en": "asks for your reply",
+   "nl": "vraagt om uw antwoord"
+  },
+  "urgent": {
+   "en": "has a deadline soon",
+   "nl": "heeft binnenkort een deadline"
+  },
+  "you_wrote_to_sender": {
+   "en": "you wrote to this sender before",
+   "nl": "u schreef deze afzender eerder"
+  },
+  "reply_to_your_mail": {
+   "en": "a reply to mail you sent",
+   "nl": "een antwoord op mail die u stuurde"
+  },
+  "newsletter": {
+   "en": "a newsletter or mailing list",
+   "nl": "een nieuwsbrief of mailinglijst"
+  }
+ }
+}

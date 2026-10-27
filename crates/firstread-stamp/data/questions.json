@@ -1,0 +1,199 @@
+{
+ "_note": "The typed questions firstread asks (docs/02-signals.md, the axes). A question is answered only by a provider that supports it and has a fitted calibration for it; the rest are recorded as not asked.",
+ "questions": [
+  {
+   "id": "is_spam",
+   "kind": "noul",
+   "text": "Is this unwanted bulk mail, phishing or fraud?"
+  },
+  {
+   "id": "risk_phishing",
+   "kind": "noul",
+   "text": "The message tries to obtain login details, codes or card data, for example through a fake login or payment page."
+  },
+  {
+   "id": "risk_fraud",
+   "kind": "noul",
+   "text": "The message is payment or invoice fraud: it asks for a payment, or for changed bank details to be used, under a false identity or pretext."
+  },
+  {
+   "id": "risk_malware",
+   "kind": "noul",
+   "text": "The message tries to get the recipient to open a file or install software that is harmful."
+  },
+  {
+   "id": "risk_extortion",
+   "kind": "noul",
+   "text": "The message threatens the recipient and demands payment."
+  },
+  {
+   "id": "risk_callback",
+   "kind": "noul",
+   "text": "The message asks the recipient to call a phone number about a payment, an order or an account problem they did not start."
+  },
+  {
+   "id": "asks_credentials",
+   "kind": "noul",
+   "text": "The message asks the recipient to log in, or to give a password, code or card details."
+  },
+  {
+   "id": "asks_payment_or_bank_change",
+   "kind": "noul",
+   "text": "The message asks the recipient to make a payment or to use changed bank details."
+  },
+  {
+   "id": "asks_gift_cards",
+   "kind": "noul",
+   "text": "The message asks the recipient to buy gift cards or vouchers."
+  },
+  {
+   "id": "asks_remote_access",
+   "kind": "noul",
+   "text": "The message asks the recipient to give someone remote access to a computer or phone."
+  },
+  {
+   "id": "asks_phone_call",
+   "kind": "noul",
+   "text": "The message asks the recipient to call a phone number."
+  },
+  {
+   "id": "asks_personal_data",
+   "kind": "noul",
+   "text": "The message asks for personal data such as an ID document, citizen service number or date of birth."
+  },
+  {
+   "id": "asks_secrecy",
+   "kind": "noul",
+   "text": "The message pressures the recipient to keep it secret or to skip normal checks."
+  },
+  {
+   "id": "injection",
+   "kind": "noul",
+   "text": "The message contains instructions addressed to an AI assistant or agent rather than to the person reading it."
+  },
+  {
+   "id": "important",
+   "kind": "noul",
+   "text": "The message deserves the recipient's attention soon."
+  },
+  {
+   "id": "sender_kind",
+   "kind": "choice",
+   "text": "Who sent this message?",
+   "options": [
+    "person",
+    "organisation_transactional",
+    "organisation_bulk",
+    "machine",
+    "mailing_list",
+    "auto_reply",
+    "bounce"
+   ]
+  },
+  {
+   "id": "intent",
+   "kind": "choice",
+   "text": "What does the message want from the recipient?",
+   "options": [
+    "inform",
+    "request_action",
+    "request_reply",
+    "sell",
+    "scam"
+   ]
+  },
+  {
+   "id": "urgency",
+   "kind": "score",
+   "text": "How urgently does the recipient need to act?",
+   "levels": [
+    "no action",
+    "can wait weeks",
+    "this week",
+    "within a day or two",
+    "today",
+    "immediately"
+   ]
+  },
+  {
+   "id": "topic_money",
+   "kind": "noul",
+   "text": "The message is about money: an invoice, receipt, payment or bank matter."
+  },
+  {
+   "id": "topic_orders",
+   "kind": "noul",
+   "text": "The message is about orders and shipping."
+  },
+  {
+   "id": "topic_travel",
+   "kind": "noul",
+   "text": "The message is about travel and tickets."
+  },
+  {
+   "id": "topic_account",
+   "kind": "noul",
+   "text": "The message is about account and security: logins, passwords, codes."
+  },
+  {
+   "id": "topic_work",
+   "kind": "noul",
+   "text": "The message is about work and projects."
+  },
+  {
+   "id": "topic_customers",
+   "kind": "noul",
+   "text": "The message is about customers: requests, quotes, complaints."
+  },
+  {
+   "id": "topic_government",
+   "kind": "noul",
+   "text": "The message is about government."
+  },
+  {
+   "id": "topic_health",
+   "kind": "noul",
+   "text": "The message is about health."
+  },
+  {
+   "id": "topic_education",
+   "kind": "noul",
+   "text": "The message is about education and school."
+  },
+  {
+   "id": "topic_social",
+   "kind": "noul",
+   "text": "The message is about social and community."
+  },
+  {
+   "id": "topic_calendar",
+   "kind": "noul",
+   "text": "The message is about calendar and events."
+  },
+  {
+   "id": "topic_news",
+   "kind": "noul",
+   "text": "The message is about news and content."
+  },
+  {
+   "id": "topic_promotions",
+   "kind": "noul",
+   "text": "The message is about promotions."
+  },
+  {
+   "id": "topic_jobs",
+   "kind": "noul",
+   "text": "The message is about jobs."
+  },
+  {
+   "id": "topic_legal",
+   "kind": "noul",
+   "text": "The message is about legal."
+  },
+  {
+   "id": "topic_personal",
+   "kind": "noul",
+   "text": "The message is about personal life."
+  }
+ ]
+}

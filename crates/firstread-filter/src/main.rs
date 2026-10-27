@@ -1,5 +1,8 @@
 //! `firstread-filter`: see the library docs.
 //!
+//! `FIRSTREAD_FOLDERS` (comma-separated folder keys, default `inbox,junk`) is the mode's allowed
+//! set; a directive naming another key is invalid and takes the fallback.
+//!
 //! Asks `firstreadd` for a directive over the Unix socket in `FIRSTREAD_SOCKET` (default
 //! `/run/firstread/filter.sock`) within `FIRSTREAD_DEADLINE_MS` (default 2000), re-validates the
 //! reply, and applies it. Any failure on the way (socket missing, deadline, malformed or invalid
@@ -17,7 +20,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use firstread_core::context::DeliveryContext;
-use firstread_core::directive::{Directive, DirectivePolicy};
+use firstread_core::directive::{Directive, DirectivePolicy, FolderKey};
 use firstread_core::wire::{MAX_JSON_FRAME, Reply, Request, read_frame, write_frame};
 use firstread_filter::{Outcome, finish};
 
@@ -27,6 +30,23 @@ fn deadline() -> Duration {
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(2000);
     Duration::from_millis(ms.max(1))
+}
+
+/// The directive policy, with the folder keys of `FIRSTREAD_FOLDERS` (comma-separated, the same
+/// list as `firstreadd --folders`) when set. An invalid key is ignored, never fatal: the filter
+/// must deliver whatever its environment says.
+fn policy() -> DirectivePolicy {
+    let mut p = DirectivePolicy::default();
+    if let Ok(v) = std::env::var("FIRSTREAD_FOLDERS") {
+        let keys: Vec<FolderKey> = v
+            .split(',')
+            .filter_map(|k| FolderKey::new(k.trim()).ok())
+            .collect();
+        if !keys.is_empty() {
+            p.allowed_folders = keys;
+        }
+    }
+    p
 }
 
 fn ask_daemon(message: &[u8], deadline: Duration) -> Result<Directive, String> {
@@ -64,7 +84,7 @@ fn main() -> ExitCode {
         eprintln!("firstread-filter: reading the message failed: {e}");
         return ExitCode::FAILURE;
     }
-    let policy = DirectivePolicy::default();
+    let policy = policy();
     let limit = deadline();
     let (tx, rx) = mpsc::channel();
     let copy = message.clone();

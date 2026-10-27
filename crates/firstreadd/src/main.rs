@@ -25,11 +25,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use firstread_core::context::DeliveryContext;
-use firstread_core::decision::{ModelRelease, Question, QuestionId, QuestionKind};
-use firstread_core::directive::{Directive, DirectivePolicy};
+use firstread_core::decision::{ModelRelease, Question, QuestionId};
+use firstread_core::directive::{Directive, DirectivePolicy, FolderKey};
 use firstread_core::provider::{
     Calibration, DataClass, Decider, Locality, Manifest, ProviderError, Rendered,
 };
+use firstread_core::verdict::VerdictKind;
 use firstread_core::wire::{
     MAX_JSON_FRAME, Reply, Request, WireDirective, read_frame, write_frame,
 };
@@ -68,6 +69,13 @@ struct Args {
     dns_timeout_ms: u64,
     dns_budget_ms: u64,
     clock_message: bool,
+    verdict_combiners: Vec<(VerdictKind, PathBuf)>,
+    language: String,
+    detail_headers: bool,
+    folders: Vec<FolderKey>,
+    questions: Option<PathBuf>,
+    actions: Option<PathBuf>,
+    reasons: Option<PathBuf>,
 }
 
 const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE] [--combiner FILE]
@@ -77,6 +85,8 @@ const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE]
   [--memory DIR [--feedback-socket PATH] [--own-actors NAME,NAME]]
   [--dns-recorded FILE ... [--dns-window FROM,TO] | --dns-live [--dns-server IP:PORT ...] [--dns-timeout-ms MS]]
   [--dns-budget-ms MS] [--clock wall|message]
+  [--verdict-combiner KIND=FILE ...] [--folders KEY,KEY] [--language TAG] [--no-detail-headers]
+  [--questions FILE] [--actions FILE] [--reasons FILE]
 
 --shadow: decide and record every message as usual, but reply with an empty directive, so the
 filter only removes foreign firstread headers and nothing is visible or filed
@@ -97,7 +107,16 @@ keys and policies are never applied to old mail. --clock: the time signatures ar
 
 --dns-live: run the checks against live DNS: the --dns-server resolvers, else the nameservers of
 /etc/resolv.conf; --dns-timeout-ms per attempt (default 400). --dns-budget-ms: most time one
-message may spend on DNS (default 800); after it, lookups are temporary errors.";
+message may spend on DNS (default 800); after it, lookups are temporary errors.
+
+--verdict-combiner: the combiner of one more verdict (phishing, fraud, needs_action, important,
+bulk_low_interest); --combiner is junk's. A verdict without a combiner is not decided. Phishing
+and fraud combiners may not let mailbox facts lower P (the safety floor). --folders: the folder
+keys this mailbox mode allows (default inbox,junk; the sieve_after script needs one literal
+fileinto per key, and firstread-filter the same list in FIRSTREAD_FOLDERS). --language: of the
+reason texts (default en). --no-detail-headers: write only X-Firstread and the folder and keyword
+headers. --questions, --actions, --reasons: replace the data files compiled in
+(crates/firstread-stamp/data/).";
 
 fn parse_args() -> Result<Args, String> {
     let mut a = Args {
@@ -124,6 +143,13 @@ fn parse_args() -> Result<Args, String> {
         dns_timeout_ms: 400,
         dns_budget_ms: 800,
         clock_message: false,
+        verdict_combiners: vec![],
+        language: "en".into(),
+        detail_headers: true,
+        folders: vec![],
+        questions: None,
+        actions: None,
+        reasons: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -188,6 +214,29 @@ fn parse_args() -> Result<Args, String> {
                     other => return Err(format!("unknown clock {other}")),
                 };
             }
+            "--verdict-combiner" => {
+                let v = val()?;
+                let (k, f) = v
+                    .split_once('=')
+                    .ok_or_else(|| format!("--verdict-combiner {v}: KIND=FILE"))?;
+                let kind = VerdictKind::parse(k).ok_or_else(|| format!("unknown verdict {k}"))?;
+                if kind == VerdictKind::Junk {
+                    return Err("junk's combiner is --combiner".into());
+                }
+                a.verdict_combiners.push((kind, f.into()));
+            }
+            "--folders" => {
+                a.folders = val()?
+                    .split(',')
+                    .filter(|k| !k.is_empty())
+                    .map(|k| FolderKey::new(k).map_err(|e| format!("--folders: {e}")))
+                    .collect::<Result<_, _>>()?;
+            }
+            "--language" => a.language = val()?,
+            "--no-detail-headers" => a.detail_headers = false,
+            "--questions" => a.questions = Some(val()?.into()),
+            "--actions" => a.actions = Some(val()?.into()),
+            "--reasons" => a.reasons = Some(val()?.into()),
             "--help" | "-h" => return Err(HELP.into()),
             other => return Err(format!("unknown flag {other}\n{HELP}")),
         }
@@ -556,11 +605,36 @@ fn load_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T, String> 
 
 fn run() -> Result<(), String> {
     let a = parse_args()?;
-    let questions = vec![Question {
-        id: QuestionId("is_spam".into()),
-        text: "Is this unwanted bulk mail, phishing or fraud?".into(),
-        kind: QuestionKind::Noul,
-    }];
+    let read =
+        |p: &PathBuf| std::fs::read_to_string(p).map_err(|e| format!("{}: {e}", p.display()));
+    let questions = match &a.questions {
+        Some(p) => firstread_stamp::parse_questions(&read(p)?)?,
+        None => firstread_stamp::questions(),
+    };
+    let actions = match &a.actions {
+        Some(p) => firstread_stamp::Actions::parse(&read(p)?)?,
+        None => firstread_stamp::Actions::default(),
+    }
+    .with_junk_threshold(a.junk_threshold);
+    let reasons = match &a.reasons {
+        Some(p) => firstread_stamp::Reasons::parse(&read(p)?)?,
+        None => firstread_stamp::Reasons::default(),
+    };
+    let mut verdicts = BTreeMap::new();
+    for (kind, path) in &a.verdict_combiners {
+        let c: Combiner = load_json(path)?;
+        c.check_directions()
+            .map_err(|e| format!("combiner {}: {e:?}", c.release))?;
+        if kind.has_safety_floor() {
+            c.check_safety_floor()
+                .map_err(|e| format!("combiner {}: {e:?}", c.release))?;
+        }
+        verdicts.insert(*kind, c);
+    }
+    let mut policy = DirectivePolicy::default();
+    if !a.folders.is_empty() {
+        policy.allowed_folders = a.folders.clone();
+    }
     let tier1 = match (&a.sidecar, &a.calibration) {
         (Some(p), Some(c)) => {
             let d =
@@ -630,11 +704,17 @@ fn run() -> Result<(), String> {
             deployment: a.deployment,
             mac_key: mac_key_bytes.clone(),
             trusted_authserv_ids: a.trusted,
-            junk_threshold: a.junk_threshold,
             questions,
+            verdicts,
+            stamp: firstread_pipeline::StampConfig {
+                actions,
+                reasons,
+                language: a.language.clone(),
+                detail_headers: a.detail_headers,
+            },
             render_max_chars: a.render_max_chars,
             data_class: a.data_class,
-            policy: DirectivePolicy::default(),
+            policy,
         },
         tier1,
         combiner,
