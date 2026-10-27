@@ -1,0 +1,158 @@
+{
+ "profiles": {
+  "none": {
+   "cost_per_1k": 88.9348500517063,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 27.77777777777778,
+    "sa": 93.68191721132898,
+    "sa_hard_ham": 0.0,
+    "synthetic_nl": 46.51162790697674
+   },
+   "false_positives": 0,
+   "false_negatives": 104,
+   "hard_negative_fp": 0,
+   "vs_off": {
+    "point_per_1k": 4.1365046535677354,
+    "ci95_per_1k": [
+     1.0341261633919339,
+     8.273009307135471
+    ],
+    "new_false_positives": [],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 0,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 0
+   },
+   "owner_actions_pass_B": {
+    "junk": 0,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 0
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_seen_log": -0.114,
+    "mailbox.iban_new_for_domain": -0.792,
+    "mailbox.known_thread": 0.925,
+    "mailbox.sender_seen_log": -0.422
+   },
+   "combiner": "combiner:74d74dc9c8"
+  },
+  "passive": {
+   "cost_per_1k": 82.7300930713547,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 27.77777777777778,
+    "sa": 87.14596949891067,
+    "sa_hard_ham": 0.0,
+    "synthetic_nl": 23.25581395348837
+   },
+   "false_positives": 0,
+   "false_negatives": 95,
+   "hard_negative_fp": 0,
+   "vs_off": {
+    "point_per_1k": -2.0682523267838677,
+    "ci95_per_1k": [
+     -8.273009307135471,
+     3.102378490175801
+    ],
+    "new_false_positives": [],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 129,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 3
+   },
+   "owner_actions_pass_B": {
+    "junk": 132,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 3
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_junk_log": 0.99,
+    "mailbox.domain_ok_log": -6.864,
+    "mailbox.domain_seen_log": -0.371,
+    "mailbox.iban_new_for_domain": -0.57,
+    "mailbox.known_thread": -0.574,
+    "mailbox.sender_junk_log": 6.883,
+    "mailbox.sender_ok_log": -6.864,
+    "mailbox.sender_seen_log": -0.254
+   },
+   "combiner": "combiner:bbc9133258"
+  },
+  "active": {
+   "cost_per_1k": 76.5253360910031,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 20.833333333333332,
+    "sa": 80.61002178649237,
+    "sa_hard_ham": 0.0,
+    "synthetic_nl": 23.25581395348837
+   },
+   "false_positives": 0,
+   "false_negatives": 86,
+   "hard_negative_fp": 0,
+   "vs_off": {
+    "point_per_1k": -8.273009307135471,
+    "ci95_per_1k": [
+     -14.477766287487073,
+     -2.0682523267838677
+    ],
+    "new_false_positives": [],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 346,
+    "sent": 366,
+    "dropped_or_duplicate": 0,
+    "not_junk": 6
+   },
+   "owner_actions_pass_B": {
+    "junk": 312,
+    "sent": 366,
+    "dropped_or_duplicate": 0,
+    "not_junk": 5
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_junk_log": 0.388,
+    "mailbox.domain_ok_log": -5.106,
+    "mailbox.domain_seen_log": -0.083,
+    "mailbox.iban_new_for_domain": 0.294,
+    "mailbox.known_thread": -0.313,
+    "mailbox.sender_junk_log": 5.827,
+    "mailbox.sender_ok_log": -5.106,
+    "mailbox.sender_seen_log": -0.348,
+    "mailbox.wrote_to_domain": -2.195,
+    "mailbox.wrote_to_sender": -1.078
+   },
+   "combiner": "combiner:c93e20c9cf"
+  }
+ },
+ "messages": 7652,
+ "threshold": 0.9900990099009901,
+ "off": {
+  "cost_per_1k": 84.79834539813858,
+  "cost_per_1k_by_slice": {
+   "modern_cross_source": 20.833333333333332,
+   "sa": 89.32461873638344,
+   "sa_hard_ham": 0.0,
+   "synthetic_nl": 31.007751937984494
+  },
+  "false_positives": 0,
+  "false_negatives": 95
+ },
+ "poison": {
+  "profile": "active",
+  "mailbox": "ksummit@lists.lab.invalid",
+  "max_p_change_other_mailboxes": 0.0,
+  "decisions_changed_in_poisoned_mailbox": 10,
+  "pass": true
+ },
+ "seconds": 215.0
+}
