@@ -9,6 +9,7 @@ publish.workspace = true
 firstread-core.workspace = true
 firstread-parse.workspace = true
 firstread-auth.workspace = true
+firstread-net.workspace = true
 firstread-links.workspace = true
 firstread-graph.workspace = true
 serde.workspace = true

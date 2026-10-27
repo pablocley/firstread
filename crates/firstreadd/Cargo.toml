@@ -10,6 +10,7 @@ firstread-core.workspace = true
 firstread-pipeline.workspace = true
 firstread-graph.workspace = true
 firstread-parse.workspace = true
+firstread-net.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

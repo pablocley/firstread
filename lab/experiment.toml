@@ -31,8 +31,9 @@ C = 1.0
 C = 4.0
 # 0 is an L2 penalty (lbfgs), 1 an L1 penalty (saga), in between elastic net.
 l1_ratio = 1.0
-# Feature names or prefixes to leave out, e.g. ["links.", "auth."].
-disabled = []
+# Feature names or prefixes to leave out, e.g. ["links.", "auth."]. "auth.own_" are our own DKIM
+# and DMARC checks over recorded DNS (lab/data/dns-recorded/), off on main until a run keeps them.
+disabled = ["auth.own_"]
 # Mailbox memory (mailbox.*): "joint" fits it with everything else; "residual" fits the rest
 # without memory first, then memory on top of it without an intercept and without the absence
 # facts, so mail from a sender, domain and thread the mailbox does not know is decided exactly as
