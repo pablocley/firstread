@@ -1,0 +1,171 @@
+{
+ "profiles": {
+  "none": {
+   "cost_per_1k": 286.4529472595657,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 18.51851851851852,
+    "sa": 83.87799564270152,
+    "sa_hard_ham": 4081.6326530612246,
+    "synthetic_nl": 31.007751937984494
+   },
+   "false_positives": 2,
+   "false_negatives": 89,
+   "hard_negative_fp": 2,
+   "vs_off": {
+    "point_per_1k": 201.6546018614271,
+    "ci95_per_1k": [
+     -9.307135470527404,
+     514.9948293691831
+    ],
+    "new_false_positives": [
+     "spamassassin-0194ad4537396505",
+     "spamassassin-447ee29f72798d61"
+    ],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 0,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 0
+   },
+   "owner_actions_pass_B": {
+    "junk": 0,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 0
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_seen_log": -0.549,
+    "mailbox.first_contact": 0.327,
+    "mailbox.iban_new_for_domain": -3.784,
+    "mailbox.known_thread": 0.724,
+    "mailbox.sender_seen_log": -0.764,
+    "mailbox.unknown_thread": -0.432
+   },
+   "combiner": "combiner:6a1014390d"
+  },
+  "passive": {
+   "cost_per_1k": 176.83557394002068,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 16.203703703703702,
+    "sa": 77.34204793028323,
+    "sa_hard_ham": 2040.8163265306123,
+    "synthetic_nl": 15.503875968992247
+   },
+   "false_positives": 1,
+   "false_negatives": 80,
+   "hard_negative_fp": 1,
+   "vs_off": {
+    "point_per_1k": 92.03722854188211,
+    "ci95_per_1k": [
+     -19.64839710444674,
+     306.10134436401245
+    ],
+    "new_false_positives": [
+     "spamassassin-0194ad4537396505"
+    ],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 129,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 3
+   },
+   "owner_actions_pass_B": {
+    "junk": 110,
+    "sent": 0,
+    "dropped_or_duplicate": 0,
+    "not_junk": 3
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_junk_log": 1.807,
+    "mailbox.domain_ok_log": -5.576,
+    "mailbox.domain_seen_log": -0.99,
+    "mailbox.first_contact": 0.071,
+    "mailbox.iban_new_for_domain": -3.522,
+    "mailbox.known_thread": 0.0,
+    "mailbox.sender_junk_log": 6.083,
+    "mailbox.sender_ok_log": -5.576,
+    "mailbox.sender_seen_log": -0.477,
+    "mailbox.unknown_thread": -0.41
+   },
+   "combiner": "combiner:d107f8f368"
+  },
+  "active": {
+   "cost_per_1k": 172.69906928645295,
+   "cost_per_1k_by_slice": {
+    "modern_cross_source": 23.14814814814815,
+    "sa": 72.98474945533769,
+    "sa_hard_ham": 2040.8163265306123,
+    "synthetic_nl": 23.25581395348837
+   },
+   "false_positives": 1,
+   "false_negatives": 80,
+   "hard_negative_fp": 1,
+   "vs_off": {
+    "point_per_1k": 87.90072388831437,
+    "ci95_per_1k": [
+     -22.750775594622542,
+     301.96483971044466
+    ],
+    "new_false_positives": [
+     "spamassassin-0194ad4537396505"
+    ],
+    "slices_worse": []
+   },
+   "owner_actions_pass_A": {
+    "junk": 346,
+    "sent": 366,
+    "dropped_or_duplicate": 0,
+    "not_junk": 6
+   },
+   "owner_actions_pass_B": {
+    "junk": 282,
+    "sent": 366,
+    "dropped_or_duplicate": 0,
+    "not_junk": 6
+   },
+   "invariant_violations": 0,
+   "mailbox_weights": {
+    "mailbox.domain_junk_log": 0.824,
+    "mailbox.domain_ok_log": -4.087,
+    "mailbox.domain_seen_log": -0.515,
+    "mailbox.first_contact": 0.616,
+    "mailbox.iban_new_for_domain": 0.0,
+    "mailbox.known_thread": 0.0,
+    "mailbox.sender_junk_log": 6.106,
+    "mailbox.sender_ok_log": -4.087,
+    "mailbox.sender_seen_log": -0.55,
+    "mailbox.unknown_thread": -0.229,
+    "mailbox.wrote_to_domain": -1.974,
+    "mailbox.wrote_to_sender": 0.0
+   },
+   "combiner": "combiner:3c93322351"
+  }
+ },
+ "messages": 7652,
+ "threshold": 0.9900990099009901,
+ "off": {
+  "cost_per_1k": 84.79834539813858,
+  "cost_per_1k_by_slice": {
+   "modern_cross_source": 20.833333333333332,
+   "sa": 89.32461873638344,
+   "sa_hard_ham": 0.0,
+   "synthetic_nl": 31.007751937984494
+  },
+  "false_positives": 0,
+  "false_negatives": 95
+ },
+ "poison": {
+  "profile": "active",
+  "mailbox": "ksummit@lists.lab.invalid",
+  "max_p_change_other_mailboxes": 0.0,
+  "decisions_changed_in_poisoned_mailbox": 15,
+  "pass": true
+ },
+ "seconds": 215.5
+}
