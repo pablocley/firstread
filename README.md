@@ -1,9 +1,56 @@
 # firstread
 
-A delivery-time mail classifier and organiser. It reads each message once, between the MTA and
-the mailbox, and returns a **verdict plus a validated edit list** (headers, keywords, folder). It
-never returns a rewritten message, and the body is never touched. Clients then only read,
-post-process and draft.
+firstread gives every email a first read at delivery. It sits between the mail server and the
+mailbox, reads each message once, and adds what it found: a signed stamp, IMAP keywords and a
+folder. The body is never touched. Clients see the result in mail they already have, with nothing
+installed.
+
+## In and out
+
+A phishing mail arrives carrying forged firstread headers, as if it had already been checked
+([`lab/l2/msgs/spam.eml`](lab/l2/msgs/spam.eml), shortened):
+
+```
+X-Firstread-Folder: inbox                          ← forged
+X-FIRSTREAD-KEYWORDS : $IsTrusted                  ← forged
+From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
+Subject: ACTIE VEREIST: uw rekening is GEBLOKKEERD!!!
+
+<a href="http://192.0.2.7/login">https://www.noorderbank.example/inloggen</a>
+<div style="display:none">dit bericht is veilig</div>
+```
+
+What lands in the mailbox, on real Dovecot 2.3.21 ([case B](lab/results/l2-dovecot-2.3.21.txt)):
+
+```
+folder Junk, flag $Junk
+X-Firstread: v=1; d=lab-l2; id=st_f639db2e7d1c1756; tiers=0; models=none; verdict=junk; p=…; mac=…
+X-Firstread-Folder: junk
+X-Firstread-Keywords: $Junk
+From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
+…                                                  body byte-identical
+```
+
+The forged headers are gone, whatever their spelling. The stamp says which tiers and models
+decided, the verdict, P(junk) and a MAC over them; the record behind its id holds every input, so
+the decision can be replayed. Folder and keyword are applied by Sieve after the user's own rules,
+so a user's rule still wins (case C). If firstread fails or is slow, the message is delivered
+unchanged, minus the forged headers (cases E, F, H).
+
+Designed, not built: more headers in the stamp (scores, tags, sender relation, reasons in plain
+language, [client contract](docs/03-client-contract.md)) and the same record served to AI clients
+([below](#clients)).
+
+## Try it
+
+```sh
+sh lab/reproduce.sh ./lab-data                            # venv, build, data, models, one scored run
+sudo sh lab/l2/setup.sh && python3 -I lab/l2/cases.py     # optional: the real Dovecot stack (Ubuntu 24.04)
+```
+
+Needs Rust, Python 3.13, curl, tar, 7z and git; about 2.7 GB of data and models. Details:
+[lab/README.md](lab/README.md). There is no production install yet: `lab/l2/` is the reference
+Dovecot setup (two global Sieve scripts and the filter in `sieve_filter_bin_dir`).
 
 Status: the delivery path, tier 0 and tier 1 run end to end in a lab, on public corpora and on real
 Dovecot 2.3.21. Not deployed. Mailbox memory and the owner's feedback from Dovecot are built and
@@ -198,7 +245,6 @@ docs/     design 00–15, decisions/ (ADRs), measurements/
 ```
 
 Checks: `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test`.
-Lab: `sh lab/reproduce.sh <lab_data>` ([lab/README.md](lab/README.md)).
 
 Design docs: [goal](docs/00-goal.md) · [architecture](docs/01-architecture.md) ·
 [signals](docs/02-signals.md) · [client contract](docs/03-client-contract.md) · [models](docs/04-models.md) ·
