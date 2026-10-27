@@ -7,6 +7,14 @@
 //!   print `{"id", "text_sha256", "text"}` with exactly the text the daemon sends to tier-1
 //!   providers, so the lab can embed in bulk without a second renderer
 //!
+//! - `firstread auth-batch <items.jsonl> [--dns FILE ... [--dns-window FROM,TO]] [--clock message|now]`:
+//!   for each line `{"id", "path"}` print our own DKIM and DMARC verdict and every DNS lookup it
+//!   made, against DNS recordings (one lookup per line; names they do not hold are temporary
+//!   errors; on a clash the earlier file's answer is kept; a message judged outside
+//!   `--dns-window`, Unix seconds, gets no answers). `--clock
+//!   message` judges signature expiry at the message's Date (the lab's stand-in for its arrival);
+//!   `now` at the current time. The lab records DNS with it (`lab/harness/record_dns.py`).
+//!
 //! - `firstread feedback --socket PATH --mailbox USER (--junk|--not-junk|--sent|--forget)
 //!   [--actor NAME] [--at UNIX]`: report one action of the mailbox owner to `firstreadd`'s feedback
 //!   socket, the message on stdin (not for `--forget`). Dovecot IMAPSieve scripts call it when
@@ -33,6 +41,13 @@ fn flag_value(args: &[String], name: &str) -> Option<String> {
     args.iter()
         .position(|a| a == name)
         .and_then(|i| args.get(i + 1).cloned())
+}
+
+fn flag_values(args: &[String], name: &str) -> Vec<String> {
+    args.windows(2)
+        .filter(|w| w[0] == name)
+        .map(|w| w[1].clone())
+        .collect()
 }
 
 fn inspect(args: &[String]) -> Result<(), String> {
@@ -86,6 +101,71 @@ fn render_batch(args: &[String]) -> Result<(), String> {
             Err(e) => serde_json::json!({"id": item.id, "error": format!("{e:?}")}),
         };
         writeln!(out, "{rec}").map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn verification_json(id: &str, at: u64, v: &firstread_auth::Verification) -> serde_json::Value {
+    serde_json::json!({
+        "id": id,
+        "at": at,
+        "dkim": v.dkim.iter().map(|s| serde_json::json!({
+            "result": s.status.as_str(), "reason": s.reason, "d": s.domain, "s": s.selector,
+            "a": s.algorithm, "whole_body": s.whole_body,
+        })).collect::<Vec<_>>(),
+        "dmarc": v.dmarc.outcome.as_str(),
+        "policy": v.dmarc.policy.map(|p| p.as_str()),
+        "from_domain": v.dmarc.from_domain,
+        "aligned": v.dmarc.aligned_domain,
+        "identity_verified": v.identity_verified(),
+        "lookups": v.lookups,
+    })
+}
+
+fn auth_batch(args: &[String]) -> Result<(), String> {
+    let path = args
+        .first()
+        .ok_or("usage: firstread auth-batch <items.jsonl> [--dns FILE ... [--dns-window FROM,TO]] [--clock message|now]")?;
+    let mut dns = firstread_net::RecordedDns::new();
+    for p in flag_values(args, "--dns") {
+        dns.extend(
+            firstread_net::RecordedDns::load(std::path::Path::new(&p))
+                .map_err(|e| format!("{p}: {e}"))?,
+        );
+    }
+    if let Some(w) = flag_value(args, "--dns-window") {
+        let (from, to) = firstread_net::parse_window(&w)?;
+        dns.set_window(from, to);
+    }
+    let clock = flag_value(args, "--clock").unwrap_or_else(|| "message".into());
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let f = std::fs::File::open(path).map_err(|e| format!("{path}: {e}"))?;
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    for line in BufReader::new(f).lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let item: Item = serde_json::from_str(&line).map_err(|e| format!("{e}: {line}"))?;
+        let raw = std::fs::read(&item.path).map_err(|e| format!("{}: {e}", item.path))?;
+        let parsed = firstread_parse::parse(&raw).ok();
+        let from = parsed
+            .as_ref()
+            .and_then(|p| p.state.from.as_ref().map(|f| f.address.clone()));
+        let at = match clock.as_str() {
+            "now" => now,
+            "message" => parsed
+                .as_ref()
+                .and_then(|p| p.date)
+                .and_then(|d| u64::try_from(d).ok())
+                .unwrap_or(0),
+            other => return Err(format!("unknown clock {other}")),
+        };
+        let v = firstread_auth::verify(&raw, from.as_deref(), at, &dns);
+        writeln!(out, "{}", verification_json(&item.id, at, &v)).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -151,11 +231,12 @@ fn main() -> ExitCode {
     let result = match cmd {
         "inspect" => inspect(rest),
         "render-batch" => render_batch(rest),
+        "auth-batch" => auth_batch(rest),
         "feedback" => feedback(rest),
         "stamp" | "check-draft" | "eval" | "replay" => {
             Err(format!("firstread {cmd}: not implemented yet"))
         }
-        _ => Err("usage: firstread <inspect|render-batch|feedback> ...".into()),
+        _ => Err("usage: firstread <inspect|render-batch|auth-batch|feedback> ...".into()),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,
