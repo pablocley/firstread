@@ -33,7 +33,7 @@ is a verdict and a bounded edit list, never a new message.
 | **A** delivery | a global `sieve_before` script runs `firstread-filter` as a Sieve `filter` test with the message on stdin and the context in `USER`, `SENDER`, `RECIPIENT`, `ORIG_RECIPIENT`; the filter gets a directive from the daemon over a Unix socket and applies the header edits to the original bytes itself (body untouched); the user's own rules run next; a global `sieve_after` script files and flags from the derived headers ([12 · Interfaces](12-interfaces.md), section 4.1.1) | primary inbound path; MTA-agnostic |
 | **B** SMTP milter | `firstread-milter` on Postfix | optional pre-acceptance action; Exim has no milter ([Rspamd's integration table](https://docs.rspamd.com/tutorials/integration)) |
 | **C** post-delivery | `doveadm flags add -u <user> <keyword> <search query>` ([doveadm-flags(1)](https://doc.dovecot.org/main/core/man/doveadm-flags.1.html)) or IMAP with a master user | late results and retroactive verdicts on mail already delivered |
-| **D** moves | Dovecot IMAPSieve (RFC 6785) on copies into and out of Junk and other folders | strongest implicit feedback |
+| **D** moves | Dovecot IMAPSieve (RFC 6785) on copies into and out of Junk and other folders, and copies reaching Sent; built for Junk and Sent ([12](12-interfaces.md) section 4.6) | strongest implicit feedback |
 | **E** outbound | submission milter (Postfix) or Exim ACL | [05-sending.md](05-sending.md) |
 | **F** API | HTTP on the daemon | webmail, digest actions, admin, support |
 | **G** mailbox events | Dovecot push-notification Lua driver: `message_new`, `message_read`, `message_trash`, `message_expunge`, `flags_set` / `flags_clear` with keyword lists ([plugin docs](https://doc.dovecot.org/main/core/plugins/push_notification_lua.html)) | implicit feedback: read, deleted, flagged, tags removed or added |
@@ -105,7 +105,7 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 | `firstread-net` | DNS, DNSBL, MTA-STS / DANE / TLS-RPT, RDAP, caches |
 | `firstread-links` | static URL analysis, lookalikes, brand impersonation, checksummed extractors |
 | `firstread-ml` | embeddings, heads, calibration, content cache keys, tier-2 client |
-| `firstread-graph` | mailbox and organisation memory: correspondents, vendors, sender profiles, folders |
+| `firstread-graph` | mailbox memory (built: senders, correspondents, threads, IBANs per domain, the owner's labels; [ADR-0018](decisions/0018-mailbox-memory-v0.md)); organisation memory, sender profiles and folders to come |
 | `firstread-learn` | learners over the event log: counters, exemplars, residual heads, platform heads, promotion |
 | `firstread-events` | event schema and adapters: delivery, IMAPSieve, push-notification Lua, digest and API feedback |
 | `firstread-commons` | indicator export with privacy gates, signing, hub client, and the hub itself |
