@@ -81,5 +81,7 @@
   "$IsTrusted",
   "fr-first-contact"
  ],
- "reasons_max": 3
+ "reasons_max": 3,
+ "_rules": "A user rule written in words (rule:<id>, answered by tier 2) sets its tag as fr-<tag> once P(true) reaches this threshold.",
+ "rule_threshold": 0.8
 }

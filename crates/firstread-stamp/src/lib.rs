@@ -107,6 +107,7 @@ struct ActionsFile {
     tags: TagsEntry,
     fact_keywords: Vec<String>,
     reasons_max: usize,
+    rule_threshold: f64,
 }
 
 #[derive(Deserialize)]
@@ -195,9 +196,11 @@ pub struct Actions {
     tag_choices: BTreeMap<String, BTreeMap<String, String>>,
     fact_keywords: Vec<FactKeyword>,
     reasons_max: usize,
+    rule_threshold: f64,
 }
 
-fn tag_ok(t: &str) -> bool {
+/// Whether a string is a valid tag or rule id: 1 to 32 of `a`-`z`, `0`-`9`, `-`.
+pub fn tag_ok(t: &str) -> bool {
     !t.is_empty()
         && t.len() <= 32
         && t.bytes()
@@ -262,6 +265,7 @@ impl Actions {
             tag_choices: f.tags.choices,
             fact_keywords,
             reasons_max: f.reasons_max,
+            rule_threshold: f.rule_threshold,
         })
     }
 
@@ -327,6 +331,65 @@ impl Default for Reasons {
     fn default() -> Self {
         Self::parse(REASONS).expect("data/reasons.json is checked by a test")
     }
+}
+
+/// A rule a mailbox owner wrote in words: "tag mails where a customer asks for a refund as
+/// retour". It is asked as the `noul` question `rule:<id>` (tier 2) and sets `fr-<tag>`. The text
+/// only ever reaches the decision model, never a header.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rule {
+    /// Stable id (a tag-like token).
+    pub id: String,
+    /// The rule as the owner wrote it.
+    pub text: String,
+    /// The tag it sets.
+    pub tag: String,
+}
+
+#[derive(Deserialize)]
+struct RulesFile {
+    rules: Vec<Rule>,
+}
+
+/// Longest rule text, in characters.
+pub const MAX_RULE_TEXT: usize = 500;
+/// Most rules per mailbox.
+pub const MAX_RULES: usize = 50;
+
+impl Rule {
+    /// The question this rule is asked as.
+    pub fn question(&self) -> Question {
+        Question {
+            id: QuestionId(format!(
+                "{}{}",
+                firstread_core::provider::RULE_PREFIX,
+                self.id
+            )),
+            text: self.text.clone(),
+            kind: QuestionKind::Noul,
+        }
+    }
+}
+
+/// Parse a mailbox's rules (`{"rules": [{"id", "text", "tag"}]}`), validating every id and tag.
+pub fn parse_rules(json: &str) -> Result<Vec<Rule>, String> {
+    let f: RulesFile = serde_json::from_str(json).map_err(|e| format!("rules: {e}"))?;
+    if f.rules.len() > MAX_RULES {
+        return Err(format!("more than {MAX_RULES} rules"));
+    }
+    let mut seen = BTreeSet::new();
+    for r in &f.rules {
+        if !tag_ok(&r.id) || !tag_ok(&r.tag) || !seen.insert(r.id.clone()) {
+            return Err(format!("rule {}: bad or repeated id, or bad tag", r.id));
+        }
+        if r.text.trim().is_empty() || r.text.chars().count() > MAX_RULE_TEXT {
+            return Err(format!(
+                "rule {}: empty or longer than {MAX_RULE_TEXT}",
+                r.id
+            ));
+        }
+    }
+    Ok(f.rules)
 }
 
 /// One verdict as a combiner scored it: P and what each input contributed (weight × value).
@@ -427,6 +490,9 @@ pub struct Facts<'a> {
     pub scored: &'a [Scored],
     /// Whether the sender's identity is verified (aligned DKIM or trusted DMARC pass).
     pub identity_verified: bool,
+    /// The mailbox's rules; a rule whose question was answered at or above the rule threshold
+    /// adds its tag.
+    pub rules: &'a [Rule],
 }
 
 /// What the stamp adds to one message.
@@ -542,6 +608,18 @@ pub fn stamp(cfg: &StampConfig, facts: &Facts<'_>, policy: &DirectivePolicy) -> 
             {
                 out.tags.push(tag.clone());
             }
+        }
+    }
+    for r in facts.rules {
+        let z = facts.inputs.get(&format!(
+            "head.{}{}.logit",
+            firstread_core::provider::RULE_PREFIX,
+            r.id
+        ));
+        if z.is_some_and(|z| 1.0 / (1.0 + (-z).exp()) >= cfg.actions.rule_threshold)
+            && !out.tags.contains(&r.tag)
+        {
+            out.tags.push(r.tag.clone());
         }
     }
     for tag in &out.tags {
@@ -730,6 +808,7 @@ mod tests {
                 inputs: &f,
                 scored: &s,
                 identity_verified: false,
+                rules: &[],
             },
             &policy(),
         );
@@ -775,6 +854,7 @@ mod tests {
                 inputs: &f,
                 scored: &s,
                 identity_verified: true,
+                rules: &[],
             },
             &policy(),
         );
@@ -789,6 +869,7 @@ mod tests {
                 inputs: &f,
                 scored: &s,
                 identity_verified: true,
+                rules: &[],
             },
             &strict,
         );
@@ -808,6 +889,7 @@ mod tests {
                 inputs: &inputs(&[]),
                 scored: &s,
                 identity_verified: true,
+                rules: &[],
             },
             &policy(),
         );
@@ -836,6 +918,7 @@ mod tests {
                 inputs: &f,
                 scored: &[],
                 identity_verified: true,
+                rules: &[],
             },
             &policy(),
         );
@@ -871,6 +954,7 @@ mod tests {
                 inputs: &f,
                 scored: &[],
                 identity_verified: false,
+                rules: &[],
             },
             &policy(),
         );
@@ -889,6 +973,7 @@ mod tests {
                 inputs: &inputs(&[]),
                 scored: &[scored(VerdictKind::Junk, 1.0, &[])],
                 identity_verified: false,
+                rules: &[],
             },
             &policy(),
         );
@@ -910,6 +995,7 @@ mod tests {
                 inputs: &inputs(&[]),
                 scored: &[scored(VerdictKind::Junk, 1.0, &[])],
                 identity_verified: false,
+                rules: &[],
             },
             &policy(),
         );
@@ -939,6 +1025,47 @@ mod tests {
             score,
             [("head.urgency.expected".to_string(), 4.5f32 as f64)]
         );
+    }
+
+    #[test]
+    fn rules_set_their_tag_and_bad_rules_are_refused() {
+        let rules = parse_rules(
+            r#"{"rules":[{"id":"refunds","text":"A customer asks for a refund","tag":"retour"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(rules[0].question().id.0, "rule:refunds");
+        let f = inputs(&[("head.rule:refunds.logit", 3.0)]);
+        let o = stamp(
+            &StampConfig::default(),
+            &Facts {
+                inputs: &f,
+                scored: &[],
+                identity_verified: false,
+                rules: &rules,
+            },
+            &policy(),
+        );
+        assert_eq!(names(&o), ["fr-retour"]);
+        let low = inputs(&[("head.rule:refunds.logit", 0.0)]);
+        let o = stamp(
+            &StampConfig::default(),
+            &Facts {
+                inputs: &low,
+                scored: &[],
+                identity_verified: false,
+                rules: &rules,
+            },
+            &policy(),
+        );
+        assert!(o.keywords.is_empty());
+        for bad in [
+            r#"{"rules":[{"id":"Refunds","text":"x","tag":"retour"}]}"#,
+            r#"{"rules":[{"id":"a","text":"x","tag":"$Junk"}]}"#,
+            r#"{"rules":[{"id":"a","text":" ","tag":"t"}]}"#,
+            r#"{"rules":[{"id":"a","text":"x","tag":"t"},{"id":"a","text":"y","tag":"u"}]}"#,
+        ] {
+            assert!(parse_rules(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

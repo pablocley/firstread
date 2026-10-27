@@ -10,14 +10,22 @@
 //! per attempt and a budget per message), our own DKIM and DMARC checks run on every message, and
 //! every lookup goes into the record.
 //!
-//! Still to build (docs/01-architecture.md): the async queue for late results and tier 2, hook C
-//! updates, push-notification events (hook G), the HTTP API, load shedding and metrics.
+//! With `--tier2` a second provider (a JEV-style decision model behind the same sidecar protocol)
+//! answers after delivery, from a bounded in-memory queue, for mailboxes with rules written in
+//! words (`--rules DIR`) and for verdicts that came close (`--tier2-from`); `--hook-c` applies what
+//! it adds through `doveadm` (`late.rs`). `--api-socket` serves the records read-only (`api.rs`).
+//!
+//! Still to build (docs/01-architecture.md): push-notification events (hook G), the API's
+//! authentication front end and search, load shedding and metrics.
 //!
 //! Configuration is by flags; `firstreadd --help` lists them.
 
+mod api;
+mod late;
+
 use std::collections::BTreeMap;
-use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Read, Write};
+use std::fs::File;
+use std::io::Read;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -25,7 +33,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use firstread_core::context::DeliveryContext;
-use firstread_core::decision::{ModelRelease, Question, QuestionId};
+use firstread_core::decision::{ModelRelease, Question, QuestionId, QuestionKind};
 use firstread_core::directive::{Directive, DirectivePolicy, FolderKey};
 use firstread_core::provider::{
     Calibration, DataClass, Decider, Locality, Manifest, ProviderError, Rendered,
@@ -76,7 +84,18 @@ struct Args {
     questions: Option<PathBuf>,
     actions: Option<PathBuf>,
     reasons: Option<PathBuf>,
+    tier2: Option<PathBuf>,
+    tier2_calibration: Option<PathBuf>,
+    tier2_from: f64,
+    tier2_timeout_ms: u64,
+    rules: Option<PathBuf>,
+    hook_c: Option<PathBuf>,
+    hook_c_folders: BTreeMap<String, String>,
+    api_socket: Option<PathBuf>,
 }
+
+/// Most messages waiting for tier 2; past it new ones are not escalated (counted in the log).
+const LATE_QUEUE: usize = 256;
 
 const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE] [--combiner FILE]
   [--records FILE] [--deployment ID] [--mac-key KEY] [--trusted-authserv ID,ID]
@@ -87,6 +106,8 @@ const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE]
   [--dns-budget-ms MS] [--clock wall|message]
   [--verdict-combiner KIND=FILE ...] [--folders KEY,KEY] [--language TAG] [--no-detail-headers]
   [--questions FILE] [--actions FILE] [--reasons FILE]
+  [--tier2 PATH --tier2-calibration FILE [--tier2-from P] [--tier2-timeout-ms MS] [--rules DIR]
+   [--hook-c DOVEADM --hook-c-folders KEY=NAME,KEY=NAME]] [--api-socket PATH]
 
 --shadow: decide and record every message as usual, but reply with an empty directive, so the
 filter only removes foreign firstread headers and nothing is visible or filed
@@ -116,7 +137,19 @@ keys this mailbox mode allows (default inbox,junk; the sieve_after script needs 
 fileinto per key, and firstread-filter the same list in FIRSTREAD_FOLDERS). --language: of the
 reason texts (default en). --no-detail-headers: write only X-Firstread and the folder and keyword
 headers. --questions, --actions, --reasons: replace the data files compiled in
-(crates/firstread-stamp/data/).";
+(crates/firstread-stamp/data/).
+
+--tier2: a decision model (tier 2) behind the sidecar protocol, asked after delivery, never in
+it; --tier2-calibration is required (no calibration, no decision; user rules use `rule:*`).
+A message goes to tier 2 when its mailbox has rules (--rules DIR, one <user>.json per mailbox:
+{\"rules\": [{\"id\", \"text\", \"tag\"}]}) or a verdict reached --tier2-from (default 0.3)
+without holding. Queue: in memory, bounded; the message is never written to disk. Updates are
+appended to --records under the same id. --hook-c: apply them with this doveadm (keywords added;
+a move only from INBOX and never for $NotJunk); --hook-c-folders maps folder keys to the folder
+names the sieve_after script uses. Never in --shadow mode.
+
+--api-socket: read-only HTTP on a local socket: GET /v1/messages/{id} with header
+X-Firstread-User: the record, only for its own mailbox; GET /v1/health.";
 
 fn parse_args() -> Result<Args, String> {
     let mut a = Args {
@@ -150,6 +183,14 @@ fn parse_args() -> Result<Args, String> {
         questions: None,
         actions: None,
         reasons: None,
+        tier2: None,
+        tier2_calibration: None,
+        tier2_from: 0.3,
+        tier2_timeout_ms: 60_000,
+        rules: None,
+        hook_c: None,
+        hook_c_folders: BTreeMap::new(),
+        api_socket: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -237,6 +278,24 @@ fn parse_args() -> Result<Args, String> {
             "--questions" => a.questions = Some(val()?.into()),
             "--actions" => a.actions = Some(val()?.into()),
             "--reasons" => a.reasons = Some(val()?.into()),
+            "--tier2" => a.tier2 = Some(val()?.into()),
+            "--tier2-calibration" => a.tier2_calibration = Some(val()?.into()),
+            "--tier2-from" => a.tier2_from = val()?.parse().map_err(|e| format!("{e}"))?,
+            "--tier2-timeout-ms" => {
+                a.tier2_timeout_ms = val()?.parse().map_err(|e| format!("{e}"))?;
+            }
+            "--rules" => a.rules = Some(val()?.into()),
+            "--hook-c" => a.hook_c = Some(val()?.into()),
+            "--hook-c-folders" => {
+                for pair in val()?.split(',').filter(|p| !p.is_empty()) {
+                    let (k, n) = pair
+                        .split_once('=')
+                        .ok_or_else(|| format!("--hook-c-folders {pair}: KEY=NAME"))?;
+                    FolderKey::new(k).map_err(|e| format!("--hook-c-folders: {e}"))?;
+                    a.hook_c_folders.insert(k.to_string(), n.to_string());
+                }
+            }
+            "--api-socket" => a.api_socket = Some(val()?.into()),
             "--help" | "-h" => return Err(HELP.into()),
             other => return Err(format!("unknown flag {other}\n{HELP}")),
         }
@@ -246,6 +305,14 @@ fn parse_args() -> Result<Args, String> {
     }
     if a.sidecar.is_some() && a.calibration.is_none() {
         return Err("--sidecar needs --calibration: no calibration, no decision".into());
+    }
+    if a.tier2.is_some() != a.tier2_calibration.is_some() {
+        return Err(
+            "--tier2 and --tier2-calibration go together: no calibration, no decision".into(),
+        );
+    }
+    if (a.rules.is_some() || a.hook_c.is_some()) && a.tier2.is_none() {
+        return Err("--rules and --hook-c need --tier2".into());
     }
     if a.feedback_socket.is_some() && a.memory.is_none() {
         return Err("--feedback-socket needs --memory".into());
@@ -330,8 +397,9 @@ impl Decider for SidecarDecider {
     fn manifest(&self) -> &Manifest {
         &self.manifest
     }
+    /// A decision model reads the question text, so it declares `*`: any question.
     fn supports(&self, q: &Question) -> bool {
-        self.supported.contains(&q.id.0)
+        self.supported.iter().any(|s| s == "*" || *s == q.id.0)
     }
     fn logits(
         &self,
@@ -339,7 +407,19 @@ impl Decider for SidecarDecider {
         questions: &[Question],
     ) -> Result<Vec<Vec<f32>>, ProviderError> {
         let ids: Vec<&str> = questions.iter().map(|q| q.id.0.as_str()).collect();
-        let req = serde_json::json!({"op": "logits", "text": input.text, "questions": ids});
+        // Heads need only the ids; a decision model needs each question's text and outcomes.
+        let specs: Vec<serde_json::Value> = questions
+            .iter()
+            .map(|q| {
+                let (kind, outcomes) = match &q.kind {
+                    QuestionKind::Noul => ("noul", vec![]),
+                    QuestionKind::Choice { options } => ("choice", options.clone()),
+                    QuestionKind::Score { levels } => ("score", levels.clone()),
+                };
+                serde_json::json!({"id": q.id.0, "text": q.text, "kind": kind, "outcomes": outcomes})
+            })
+            .collect();
+        let req = serde_json::json!({"op": "logits", "text": input.text, "questions": ids, "specs": specs});
         let raw = sidecar_call(&self.path, self.timeout, &req).map_err(ProviderError::Backend)?;
         let r: SidecarLogits =
             serde_json::from_slice(&raw).map_err(|e| ProviderError::Backend(e.to_string()))?;
@@ -423,8 +503,13 @@ struct State {
     cfg: Config,
     tier1: Option<(SidecarDecider, Calibration)>,
     combiner: Option<Combiner>,
-    records: Option<Mutex<BufWriter<File>>>,
+    records: Option<api::Records>,
     shadow: bool,
+    tier2: Option<(SidecarDecider, Calibration)>,
+    tier2_from: f64,
+    rules: Option<PathBuf>,
+    late: Option<std::sync::mpsc::SyncSender<late::Job>>,
+    hook_c: Option<late::HookC>,
     memory: Option<Hub>,
     dns: Option<Box<dyn Dns>>,
     dns_budget: Duration,
@@ -515,15 +600,12 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         directive: WireDirective::from_directive(&applied),
     };
     // The record is written before the reply, so a decision the filter applied is always recorded.
-    if let Some(w) = &state.records {
+    if let Some(r) = &state.records {
         let mut rec = serde_json::to_value(&out.record).map_err(|e| e.to_string())?;
         if state.shadow {
             rec["shadow"] = serde_json::Value::Bool(true);
         }
-        let line = serde_json::to_string(&rec).map_err(|e| e.to_string())?;
-        let mut w = w.lock().map_err(|_| "records lock poisoned".to_string())?;
-        writeln!(w, "{line}").map_err(|e| e.to_string())?;
-        w.flush().map_err(|e| e.to_string())?;
+        r.append(&rec)?;
     }
     let body = serde_json::to_vec(&reply).map_err(|e| e.to_string())?;
     let sent = write_frame(&mut s, &body).map_err(|e| format!("write reply: {e}"));
@@ -532,7 +614,67 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         let e = MemoryEvent::Delivered { at: now(), keys };
         hub.commit(&ctx.user, g, &e)?;
     }
+    // Tier 2 after the reply, never before it: a full queue skips the late answer, not the mail.
+    if let Some(tx) = &state.late {
+        let has_rules = state
+            .rules
+            .as_ref()
+            .and_then(|d| late::rules_path(d, &ctx.user))
+            .is_some_and(|p| p.exists());
+        if !state.shadow
+            && firstread_pipeline::wants_tier2(&out.record, state.tier2_from, has_rules)
+        {
+            let job = late::Job {
+                record: out.record,
+                user: ctx.user.clone(),
+                message,
+            };
+            if tx.try_send(job).is_err() {
+                eprintln!("firstreadd: tier 2 queue full, message not escalated");
+            }
+        }
+    }
     sent
+}
+
+/// The tier-2 worker: one job at a time, in arrival order.
+fn late_worker(state: &State, rx: &std::sync::mpsc::Receiver<late::Job>) {
+    while let Ok(job) = rx.recv() {
+        if let Err(e) = late_one(state, job) {
+            eprintln!("firstreadd: tier 2: {e}");
+        }
+    }
+}
+
+fn late_one(state: &State, job: late::Job) -> Result<(), String> {
+    let (d, cal) = state.tier2.as_ref().ok_or("no tier 2")?;
+    let rules = match &state.rules {
+        Some(dir) => late::load_rules(dir, &job.user)?,
+        None => vec![],
+    };
+    let u = firstread_pipeline::tier2_update(
+        &state.cfg,
+        state.combiner.as_ref(),
+        &job.record,
+        &job.message,
+        Tier1 {
+            decider: d as &dyn Decider,
+            calibration: cal,
+        },
+        &rules,
+    )?;
+    if let Some(r) = &state.records {
+        r.append(&serde_json::to_value(&u.record).map_err(|e| e.to_string())?)?;
+    }
+    if let Some(hook) = &state.hook_c {
+        let mid = firstread_parse::parse(&job.message)
+            .ok()
+            .and_then(|p| p.state.message_id)
+            .ok_or("hook C: the message has no Message-ID to find it by")?;
+        let mid = format!("<{}>", mid.trim_matches(['<', '>']));
+        late::apply(hook, &late::hook_c_commands(hook, &job.user, &mid, &u))?;
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -653,18 +795,26 @@ fn run() -> Result<(), String> {
         c.check_directions()
             .map_err(|e| format!("combiner {}: {e:?}", c.release))?;
     }
-    let records = a
-        .records
-        .as_ref()
-        .map(|p| {
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(p)
-                .map(|f| Mutex::new(BufWriter::new(f)))
-                .map_err(|e| format!("{}: {e}", p.display()))
-        })
-        .transpose()?;
+    let records = a.records.as_deref().map(api::Records::open).transpose()?;
+    let tier2 = match (&a.tier2, &a.tier2_calibration) {
+        (Some(p), Some(c)) => {
+            let d = SidecarDecider::connect(p.clone(), Duration::from_millis(a.tier2_timeout_ms))?;
+            let cf: CalibrationFile = load_json(c)?;
+            let mut cal = Calibration::new(ModelRelease(cf.release));
+            for (q, t) in cf.temperatures {
+                cal.set(QuestionId(q), t);
+            }
+            eprintln!("firstreadd: tier 2 {}", d.manifest.release.0);
+            Some((d, cal))
+        }
+        _ => None,
+    };
+    let (late_tx, late_rx) = if tier2.is_some() {
+        let (tx, rx) = std::sync::mpsc::sync_channel(LATE_QUEUE);
+        (Some(tx), Some(rx))
+    } else {
+        (None, None)
+    };
     let dns: Option<Box<dyn Dns>> = if !a.dns_recorded.is_empty() {
         let mut all = RecordedDns::new();
         for p in &a.dns_recorded {
@@ -720,6 +870,14 @@ fn run() -> Result<(), String> {
         combiner,
         records,
         shadow: a.shadow,
+        tier2,
+        tier2_from: a.tier2_from,
+        rules: a.rules.clone(),
+        late: late_tx,
+        hook_c: a.hook_c.as_ref().map(|d| late::HookC {
+            doveadm: d.clone(),
+            folders: a.hook_c_folders.clone(),
+        }),
         dns,
         dns_budget: Duration::from_millis(a.dns_budget_ms),
         clock_message: a.clock_message,
@@ -741,6 +899,28 @@ fn run() -> Result<(), String> {
     });
     if a.shadow {
         eprintln!("firstreadd: shadow mode: decisions are recorded, not applied");
+    }
+    if let Some(rx) = late_rx {
+        let st = Arc::clone(&state);
+        std::thread::spawn(move || late_worker(&st, &rx));
+    }
+    if let Some(path) = &a.api_socket {
+        let _ = std::fs::remove_file(path);
+        let l = UnixListener::bind(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        eprintln!("firstreadd: API on {}", path.display());
+        let st = Arc::clone(&state);
+        std::thread::spawn(move || {
+            for conn in l.incoming() {
+                match conn {
+                    Ok(s) => {
+                        if let Err(e) = api::handle(st.records.as_ref(), s) {
+                            eprintln!("firstreadd: api: {e}");
+                        }
+                    }
+                    Err(e) => eprintln!("firstreadd: api accept: {e}"),
+                }
+            }
+        });
     }
     if let Some(fs) = &a.feedback_socket {
         let _ = std::fs::remove_file(fs);

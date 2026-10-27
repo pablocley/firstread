@@ -362,7 +362,7 @@ pub struct Config {
     pub policy: DirectivePolicy,
 }
 
-/// The tier-1 provider and its calibration.
+/// A provider and its calibration: tier 1 at delivery, tier 2 in [`tier2_update`].
 pub struct Tier1<'a> {
     /// The decider.
     pub decider: &'a dyn Decider,
@@ -456,6 +456,9 @@ pub struct RecordInput {
     pub truncated: bool,
     /// Envelope recipient.
     pub recipient: String,
+    /// The mailbox (`USER`), whose memory and rules decided; the API answers only this user.
+    #[serde(default)]
+    pub user: String,
     /// sha256 of the rendered provider text.
     pub text_sha256: Option<String>,
     /// Whether parsing failed.
@@ -703,7 +706,7 @@ pub fn run(
     }
 
     let concluded = if parsed.is_ok() {
-        conclude(cfg, combiner, &features, identity_verified)
+        conclude(cfg, combiner, &features, identity_verified, &[])
     } else {
         Concluded::default()
     };
@@ -779,6 +782,7 @@ pub fn run(
             size: raw.len() as u64,
             truncated,
             recipient: ctx.recipient.clone(),
+            user: ctx.user.clone(),
             text_sha256: text_sha,
             parse_failed: parsed.is_err(),
             at,
@@ -806,6 +810,106 @@ pub fn run(
 
 fn features_for(p: &Parsed, auth: &AuthSummary) -> BTreeMap<String, f64> {
     features(p, auth)
+}
+
+/// Whether a delivered message goes to tier 2: the mailbox has rules written in words, or a
+/// verdict came close without holding (P at or above `from`, below its threshold), the
+/// confidence-gated escalation of docs/04-models.md.
+pub fn wants_tier2(rec: &Record, from: f64, has_rules: bool) -> bool {
+    has_rules || rec.verdicts.iter().any(|v| !v.holds && v.p >= from)
+}
+
+/// What tier 2 changed for a delivered message.
+#[derive(Debug)]
+pub struct LateUpdate {
+    /// The delivered record with tier 2's decisions, verdicts and directive.
+    pub record: Record,
+    /// Keywords to add now (hook C). Nothing set at delivery is ever removed.
+    pub add_keywords: Vec<String>,
+    /// A folder to move to, only when delivery filed nowhere (INBOX or the user's own rules
+    /// decide, and hook C moves only what is still in INBOX).
+    pub folder: Option<String>,
+}
+
+/// Ask tier 2 about a delivered message and conclude again from the record's inputs plus its
+/// answers, the same way delivery concluded (docs/12-interfaces.md section 4.5: late updates add,
+/// never override). `raw` is the message as delivered, kept only in memory by the caller.
+pub fn tier2_update(
+    cfg: &Config,
+    junk: Option<&Combiner>,
+    delivered: &Record,
+    raw: &[u8],
+    tier2: Tier1<'_>,
+    rules: &[firstread_stamp::Rule],
+) -> Result<LateUpdate, String> {
+    let t = Instant::now();
+    let p = firstread_parse::parse(raw).map_err(|e| format!("parse: {e:?}"))?;
+    let text = render(&p, cfg.render_max_chars);
+    let mut all = cfg.questions.clone();
+    all.extend(rules.iter().map(firstread_stamp::Rule::question));
+    let asked = answerable(&all, tier2.decider, tier2.calibration);
+    if asked.is_empty() {
+        return Err("tier 2 can answer none of the questions".into());
+    }
+    let input = Rendered {
+        text: &text,
+        language: p.state.language.as_deref(),
+        data: cfg.data_class,
+    };
+    let ds = decide(
+        tier2.decider,
+        tier2.calibration,
+        Tier::DecisionModel,
+        &input,
+        &asked,
+    )
+    .map_err(|e| format!("tier2: {e:?}"))?;
+    let mut inputs = delivered.features.clone();
+    inputs.extend(decision_inputs(&asked, &ds));
+    let c = conclude(cfg, junk, &inputs, delivered.safety.sender_verified, rules);
+    let old = &delivered.directive;
+    let add_keywords: Vec<String> = c
+        .output
+        .keywords
+        .iter()
+        .map(|k| k.as_str().to_string())
+        .filter(|k| !old.keywords.contains(k))
+        .collect();
+    let folder = match (&old.folder, &c.output.folder) {
+        (None, Some(f)) if f.as_str() != "inbox" => Some(f.as_str().to_string()),
+        _ => None,
+    };
+    let mut record = delivered.clone();
+    record
+        .decisions
+        .retain(|d| !ds.iter().any(|n| n.question.0 == d.question));
+    record
+        .decisions
+        .extend(ds.iter().map(RecordDecision::from_decision));
+    record.safety = Safety::of(&inputs, delivered.safety.sender_verified, &c.output);
+    record.features = inputs;
+    record.p_junk = c.p_junk.or(delivered.p_junk);
+    record.verdicts = c.output.verdicts;
+    record.tags = c.output.tags;
+    record
+        .directive
+        .keywords
+        .extend(add_keywords.iter().cloned());
+    if folder.is_some() {
+        record.directive.folder.clone_from(&folder);
+    }
+    record.provenance.tiers.push(2);
+    record
+        .provenance
+        .models
+        .push(tier2.decider.manifest().release.0.clone());
+    record.provenance.errors.extend(c.errors);
+    record.provenance.timings_us.insert("tier2".into(), us(t));
+    Ok(LateUpdate {
+        record,
+        add_keywords,
+        folder,
+    })
 }
 
 /// Schema of a record. Version 2 added verdicts, tags, the safety block and the tier per decision.
@@ -851,6 +955,7 @@ pub fn conclude(
     junk: Option<&Combiner>,
     inputs: &BTreeMap<String, f64>,
     identity_verified: bool,
+    rules: &[firstread_stamp::Rule],
 ) -> Concluded {
     let mut c = Concluded::default();
     let mut scored = Vec::new();
@@ -879,6 +984,7 @@ pub fn conclude(
             inputs,
             scored: &scored,
             identity_verified,
+            rules,
         },
         &cfg.policy,
     );
@@ -1361,6 +1467,115 @@ mod tests {
             .find(|h| h.name.as_str() == "X-Firstread-Tags")
             .map(|h| h.value.as_str());
         assert_eq!(tags, Some("money, request-action"));
+    }
+
+    struct Decoder(Manifest);
+    impl Decider for Decoder {
+        fn manifest(&self) -> &Manifest {
+            &self.0
+        }
+        fn supports(&self, _: &Question) -> bool {
+            true
+        }
+        fn logits(
+            &self,
+            _: &Rendered<'_>,
+            qs: &[Question],
+        ) -> Result<Vec<Vec<f32>>, ProviderError> {
+            Ok(qs.iter().map(|_| vec![0.0, 4.0]).collect())
+        }
+    }
+
+    #[test]
+    fn tier2_answers_later_and_only_adds() {
+        let phishing = Combiner {
+            release: "phishing@t2".into(),
+            bias: -1.0,
+            weights: [
+                ("links.ip_literal".to_string(), 1.0),
+                ("head.risk_phishing.logit".to_string(), 1.0),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let cfg = Config {
+            verdicts: [(VerdictKind::Phishing, phishing)].into_iter().collect(),
+            ..cfg()
+        };
+        let delivered = run(&cfg, PHISH, &ctx(), None, None, None, None);
+        assert!(
+            delivered.directive.folder.is_none(),
+            "no tier 1: phishing not decided at delivery"
+        );
+        assert!(delivered.record.provenance.errors[0].contains("head.risk_phishing.logit"));
+        let rules = firstread_stamp::parse_rules(
+            r#"{"rules":[{"id":"bank","text":"Mail that claims to come from my bank","tag":"bank"}]}"#,
+        )
+        .unwrap();
+        assert!(wants_tier2(&delivered.record, 0.3, true));
+        assert!(
+            !wants_tier2(&delivered.record, 0.3, false),
+            "nothing came close"
+        );
+        let release = ModelRelease("decoder@t2".into());
+        let d = Decoder(Manifest {
+            release: release.clone(),
+            weights_sha256: None,
+            licence: "Apache-2.0".into(),
+            commercial_use: true,
+            locality: Locality::LocalService,
+            measured_languages: vec![],
+            max_input_tokens: 4096,
+        });
+        let mut cal = Calibration::new(release);
+        cal.set(QuestionId("risk_phishing".into()), 1.0);
+        cal.set(QuestionId(firstread_core::provider::RULE_CLASS.into()), 1.0);
+        let u = tier2_update(
+            &cfg,
+            None,
+            &delivered.record,
+            PHISH,
+            Tier1 {
+                decider: &d,
+                calibration: &cal,
+            },
+            &rules,
+        )
+        .unwrap();
+        assert_eq!(u.add_keywords, ["$Phishing", "fr-bank"]);
+        assert_eq!(u.folder.as_deref(), Some("junk"));
+        let asked: Vec<&str> = u
+            .record
+            .decisions
+            .iter()
+            .map(|d| d.question.as_str())
+            .collect();
+        assert_eq!(asked, ["risk_phishing", "rule:bank"]);
+        assert!(u.record.decisions.iter().all(|d| d.tier == 2));
+        assert_eq!(u.record.provenance.tiers, [0, 2]);
+        assert_eq!(
+            u.record.id, delivered.record.id,
+            "same message, same record id"
+        );
+        for k in &delivered.record.directive.keywords {
+            assert!(u.record.directive.keywords.contains(k), "{k} kept");
+        }
+        // A message delivery already filed is never moved again.
+        let mut filed = delivered.record.clone();
+        filed.directive.folder = Some("junk".into());
+        let again = tier2_update(
+            &cfg,
+            None,
+            &filed,
+            PHISH,
+            Tier1 {
+                decider: &d,
+                calibration: &cal,
+            },
+            &rules,
+        )
+        .unwrap();
+        assert_eq!(again.folder, None);
     }
 
     #[test]
