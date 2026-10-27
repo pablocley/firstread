@@ -7,7 +7,37 @@ installed.
 
 ## In and out
 
-A phishing mail arrives carrying forged firstread headers, as if it had already been checked
+A message comes in as bytes. It goes out as the same bytes, with knowledge added in front of
+them. In between, firstread reads it in layers, and each layer asks typed questions with a
+calibrated probability as the answer:
+
+```mermaid
+flowchart LR
+  IN["message in"] --> T0["tier 0 · deterministic facts<br/>auth · identity · links · IBAN · attachments · list"]
+  IN --> T1["tier 1 · typed decisions<br/>embedding → one head per question → calibrated P"]
+  T0 --> C["combiner<br/>+ mailbox memory"]
+  T1 --> C
+  C --> V["verdict + reasons"]
+  V --> OUT["out: same body, plus<br/>stamp · keywords · folder"]
+  V --> REC[("record: every input,<br/>replayable, for the API")]
+  T1 -. "unsure, user rules in words" .-> T2["tier 2 · decision model<br/>(JEV-style, async)"]
+  T2 -. "later: keywords, folder, record" .-> REC
+```
+
+**The decision model.** Every question has one of three types ([04](docs/04-models.md),
+`firstread-core::decision`), and a model answers all of them in the same form:
+
+| type | question | answer |
+|---|---|---|
+| `noul` | "is this asking for a payment or a bank-detail change?" | P(false), P(true) |
+| `choice` | "which category: order, invoice, newsletter, personal, …?" | one P per option |
+| `score` | "how urgent, 0–5?" | a distribution over the levels |
+
+Because every answer is a probability, each action gets its own threshold, a new model is a
+config change behind the [provider contract](docs/14-providers.md), and a new question needs no
+new pipeline.
+
+**Example.** A phishing mail with forged firstread headers, as if it had already been checked
 ([`lab/l2/msgs/spam.eml`](lab/l2/msgs/spam.eml), shortened):
 
 ```
@@ -20,6 +50,15 @@ Subject: ACTIE VEREIST: uw rekening is GEBLOKKEERD!!!
 <div style="display:none">dit bericht is veilig</div>
 ```
 
+What each layer finds:
+
+| layer | on this message |
+|---|---|
+| tier 0, facts | no DKIM or DMARC pass; link text shows `noorderbank.example`, the link goes to an IP address over plain http; hidden text; HTML only; subject mostly capitals, three exclamation marks |
+| tier 1, `is_spam` | not in this run (`tiers=0` below): the Dovecot cases test the delivery path; in the lab harness the e5-small head adds its calibrated P(true) |
+| memory | nothing: an unknown sender is decided as if memory were off |
+| combiner | the hand-set fixture combiner ([`combiner.json`](lab/l2/combiner.json)) weighs the IP link, hidden text, capitals and exclamation marks → above the threshold → verdict `junk` |
+
 What lands in the mailbox, on real Dovecot 2.3.21 ([case B](lab/results/l2-dovecot-2.3.21.txt)):
 
 ```
@@ -31,15 +70,33 @@ From: Noorderbank Klantenservice <service@noorderbank-veilig.example>
 …                                                  body byte-identical
 ```
 
-The forged headers are gone, whatever their spelling. The stamp says which tiers and models
-decided, the verdict, P(junk) and a MAC over them; the record behind its id holds every input, so
-the decision can be replayed. Folder and keyword are applied by Sieve after the user's own rules,
-so a user's rule still wins (case C). If firstread fails or is slow, the message is delivered
-unchanged, minus the forged headers (cases E, F, H).
+The forged headers are gone, whatever their spelling. The stamp names the tiers and models that
+decided, the verdict and P(junk), under a MAC; the record behind its id holds every input. Sieve
+files the message after the user's own rules, so a user's rule still wins (case C). If firstread
+fails or is slow, the message is delivered unchanged, minus the forged headers (cases E, F, H).
 
-Designed, not built: more headers in the stamp (scores, tags, sender relation, reasons in plain
-language, [client contract](docs/03-client-contract.md)) and the same record served to AI clients
-([below](#clients)).
+**Where it goes** ([client contract](docs/03-client-contract.md)): more questions, more verdicts
+and more of the answers written out. A bank-detail change from a sender seen for the first time
+would arrive as:
+
+```
+X-Firstread: v=1; …; tiers=0,1; verdict=fraud; p=0.91; mac=…
+X-Firstread-Keywords: $Phishing fr-money
+X-Firstread-Scores: phishing=0.12; fraud=0.91; junk=0.04; important=0.66; urgency=4.1
+X-Firstread-Tags: money, request-action
+X-Firstread-Sender: relation=first-contact; domain-age-days=3; lookalike=1
+X-Firstread-Reasons: (plain language: "asks to pay to a new account; first mail from this sender")
+```
+
+| | built | designed, not built |
+|---|---|---|
+| questions | `is_spam` | phishing, fraud, important, needs_action, category, urgency, user rules written in words |
+| verdicts | `junk`, `inbox` | `phishing`, `fraud`, `important`, `needs_action`, `bulk_low_interest` |
+| out | stamp, `$Junk`, Junk folder | scores, tags, sender relation, reasons, registered keywords (`$Important`, `$IsTrusted`, …), the API record |
+| models | tier 1: e5-small + logistic head | tier 2: a JEV-style decision model, async, for unsure cases |
+
+The values in the fraud example are the illustration from the client contract, not a
+measurement.
 
 ## Try it
 
