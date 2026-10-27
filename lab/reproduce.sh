@@ -1,12 +1,20 @@
 #!/bin/sh
 # Rebuild the lab from the repository and rerun one experiment (lab/README.md).
 # Usage: lab/reproduce.sh [lab_data_dir]    (default: $FIRSTREAD_LAB_DATA or ./lab-data)
-# Needs: Rust (cargo), Python 3.13 with lab/requirements.txt, curl, tar, 7z, git.
+# Needs: Rust (cargo), Python 3.13, curl, tar, 7z, git. Python packages go into <lab_data>/venv.
 set -eu
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 LAB="${1:-${FIRSTREAD_LAB_DATA:-$REPO/lab-data}}"
 export FIRSTREAD_LAB_DATA="$LAB" HF_HOME="$LAB/hf"
 cd "$REPO"
+
+if [ ! -f "$LAB/venv/.installed" ]; then                    # pinned packages, once (lab/requirements.txt)
+  python3 -m venv "$LAB/venv"
+  "$LAB/venv/bin/pip" install -q --index-url https://download.pytorch.org/whl/cpu torch==2.14.1+cpu
+  "$LAB/venv/bin/pip" install -q -r lab/requirements.txt
+  touch "$LAB/venv/.installed"
+fi
+export PATH="$LAB/venv/bin:$PATH"                          # every python3 below, and the sidecar, use it
 
 cargo build --release -q                                   # filter, daemon, CLI
 python3 -I lab/harness/fetch.py "$LAB"                     # archives, lore, models; sha256-checked

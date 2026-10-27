@@ -8,11 +8,12 @@ Results: [results/](results/) and [docs/measurements/](../docs/measurements/).
 Scripts are run through `sh` / `bash` because the GitHub copy does not keep executable bits.
 
 ```sh
-pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1+cpu
-pip install -r lab/requirements.txt
-sh lab/reproduce.sh ./lab-data     # build, fetch (about 2.7 GB with all four models), prepare, render, export, one run
+sh lab/reproduce.sh ./lab-data     # venv with the pinned packages, build, fetch (about 2.7 GB with all four models), prepare, render, export, one run
 sudo sh lab/l2/setup.sh && python3 -I lab/l2/cases.py    # optional: the real Dovecot stack
 ```
+
+Needs Rust, Python 3.13, curl, tar, 7z and git. Python packages go into `./lab-data/venv`;
+for later commands by hand, `export PATH="$PWD/lab-data/venv/bin:$PATH"`.
 
 On main, `lab/experiment.toml` is the champion of tag `oct26b`; the run at the end of
 `reproduce.sh` gives cost 84.8 per 1,000 on dev with no legitimate message in Junk and 95 spam
