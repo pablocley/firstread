@@ -20,6 +20,7 @@ use firstread_core::provider::{Calibration, DataClass, Decider, Rendered, decide
 use firstread_core::tier::Tier;
 use firstread_core::wire::WireDirective;
 use firstread_graph::{Hasher, MailboxMemory, MessageKeys};
+use firstread_net::{Dns, Lookup};
 use firstread_parse::Parsed;
 use hmac::{Hmac, KeyInit, Mac};
 use serde::{Deserialize, Serialize};
@@ -278,9 +279,23 @@ pub struct Combiner {
 pub enum CombinerError {
     /// A weight names an input this pipeline does not produce.
     UnknownInput(String),
+    /// A weight for a mailbox fact points against the fact's direction
+    /// (`firstread_graph::direction`), or the fact has no direction.
+    WrongDirection(String),
 }
 
 impl Combiner {
+    /// Refuses a combiner in which a mailbox fact pushes P(junk) the way the fact must not: a
+    /// new IBAN lowering it, a rescue raising it. Checked when a combiner is loaded.
+    pub fn check_directions(&self) -> Result<(), CombinerError> {
+        for (name, w) in &self.weights {
+            if name.starts_with("mailbox.") && !firstread_graph::weight_allowed(name, *w) {
+                return Err(CombinerError::WrongDirection(format!("{name} = {w}")));
+            }
+        }
+        Ok(())
+    }
+
     /// P(junk). Refuses a weight for an input that does not exist, so a renamed feature cannot
     /// silently drop out.
     pub fn score(&self, inputs: &BTreeMap<String, f64>) -> Result<f64, CombinerError> {
@@ -322,6 +337,45 @@ pub struct Tier1<'a> {
     pub decider: &'a dyn Decider,
     /// Its fitted calibration.
     pub calibration: &'a Calibration,
+}
+
+/// Which time a message is judged at (DKIM signature expiry).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Clock {
+    /// This Unix time: the delivery time in production (the daemon's clock), or a recorded one.
+    At(u64),
+    /// The message's own Date header: the lab's stand-in for the arrival time of corpus mail.
+    MessageDate,
+}
+
+/// Our own DKIM and DMARC checks: the resolver (live or recorded) and the clock.
+pub struct Checks<'a> {
+    /// DNS; every lookup made goes into the record.
+    pub dns: &'a dyn Dns,
+    /// The verification time.
+    pub clock: Clock,
+}
+
+/// Inputs from our own verification (`auth.own_*`). Every one is 0 or 1.
+fn own_features(v: &firstread_auth::Verification, f: &mut BTreeMap<String, f64>) {
+    use firstread_auth::{dkim::Status, dmarc::Outcome, dmarc::Policy};
+    let any = |s: Status| v.dkim.iter().any(|x| x.status == s);
+    let pass = any(Status::Pass);
+    let unaligned = v.dmarc.outcome == Outcome::Unaligned;
+    let mut put = |k: &str, b: bool| {
+        f.insert(format!("auth.own_{k}"), if b { 1.0 } else { 0.0 });
+    };
+    put("dkim_pass", pass);
+    put("dkim_fail", !pass && any(Status::Fail));
+    put("aligned", v.identity_verified());
+    put(
+        "unaligned_enforced",
+        unaligned && matches!(v.dmarc.policy, Some(Policy::Quarantine | Policy::Reject)),
+    );
+    put(
+        "unavailable",
+        v.dmarc.outcome == Outcome::TempError || (!pass && any(Status::TempError)),
+    );
 }
 
 /// The record of one decision (docs/12-interfaces.md section 4.3), schema `firstread.verdict/1`.
@@ -366,6 +420,12 @@ pub struct RecordInput {
     pub text_sha256: Option<String>,
     /// Whether parsing failed.
     pub parse_failed: bool,
+    /// The time the message was judged at (Unix seconds), when our own checks ran.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub at: Option<u64>,
+    /// Every DNS lookup our own checks made, with its answer: replaying them replays the decision.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lookups: Vec<Lookup>,
 }
 
 /// One decision in the record.
@@ -443,6 +503,8 @@ fn mac_hex(key: &[u8], data: &str) -> String {
 ///
 /// With `memory`, the mailbox facts (`mailbox.*`, `firstread-graph`) join the combiner's inputs
 /// and the record names the memory snapshot; the caller applies the delivery to memory afterwards.
+/// With `checks`, our own DKIM and DMARC verdicts (`auth.own_*`) join them, the lookups and the
+/// verification time go into the record, and an aligned DKIM pass counts as a verified identity.
 pub fn run(
     cfg: &Config,
     raw: &[u8],
@@ -450,6 +512,7 @@ pub fn run(
     tier1: Option<Tier1<'_>>,
     combiner: Option<&Combiner>,
     memory: Option<Memory<'_>>,
+    checks: Option<Checks<'_>>,
 ) -> Outcome {
     let total = Instant::now();
     let key = idempotency_key(raw, &ctx.recipient);
@@ -470,6 +533,8 @@ pub fn run(
     let mut message_id_hash = None;
     let mut truncated = false;
     let mut keys = None;
+    let mut at = None;
+    let mut lookups = Vec::new();
 
     match &parsed {
         Ok(p) => {
@@ -485,8 +550,27 @@ pub fn run(
             auth_map.insert("dkim".into(), auth.dkim.as_str().into());
             auth_map.insert("dmarc".into(), auth.dmarc.as_str().into());
             features = features_for(p, &auth);
+            let mut own_verified = false;
+            if let Some(c) = &checks {
+                let t_at = match c.clock {
+                    Clock::At(t) => t,
+                    Clock::MessageDate => p.date.and_then(|d| u64::try_from(d).ok()).unwrap_or(0),
+                };
+                let from = p.state.from.as_ref().map(|f| f.address.as_str());
+                let v = firstread_auth::verify(raw, from, t_at, c.dns);
+                own_features(&v, &mut features);
+                auth_map.insert("own_dkim".into(), v.dkim_summary().into());
+                auth_map.insert("own_dmarc".into(), v.dmarc.outcome.as_str().into());
+                if let Some(d) = &v.dmarc.aligned_domain {
+                    auth_map.insert("own_aligned".into(), d.clone());
+                }
+                own_verified = v.identity_verified();
+                at = Some(t_at);
+                lookups = v.lookups;
+            }
             if let Some(m) = &memory {
-                let identity_verified = auth.trusted && auth.dmarc == AuthResult::Pass;
+                let identity_verified =
+                    own_verified || (auth.trusted && auth.dmarc == AuthResult::Pass);
                 let k = MessageKeys::from_parsed(m.hasher, p, identity_verified);
                 features.extend(m.state.facts(&k));
                 prov.snapshot = Some(m.state.snapshot());
@@ -603,6 +687,8 @@ pub fn run(
             recipient: ctx.recipient.clone(),
             text_sha256: text_sha,
             parse_failed: parsed.is_err(),
+            at,
+            lookups,
         },
         auth: auth_map,
         features,
@@ -698,24 +784,52 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        let a = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
+        let a = run(&cfg(), PHISH, &ctx(), None, Some(&c), None, None);
         assert_eq!(
             a.directive.folder.as_ref().map(FolderKey::as_str),
             Some("junk")
         );
         assert_eq!(a.record.p_junk.map(|p| p > 0.99), Some(true));
-        let b = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
+        let b = run(&cfg(), PHISH, &ctx(), None, Some(&c), None, None);
         assert_eq!(a.record.directive, b.record.directive);
         assert_eq!(a.record.id, b.record.id);
         let other_key = Config {
             mac_key: b"other".to_vec(),
             ..cfg()
         };
-        let d = run(&other_key, PHISH, &ctx(), None, Some(&c), None);
+        let d = run(&other_key, PHISH, &ctx(), None, Some(&c), None, None);
         assert_ne!(
             a.record.directive.add[0].value,
             d.record.directive.add[0].value
         );
+    }
+
+    #[test]
+    fn a_combiner_must_follow_the_direction_of_every_mailbox_fact() {
+        let c = |name: &str, w: f64| Combiner {
+            release: "t".into(),
+            bias: 0.0,
+            weights: [("links.count".to_string(), -3.0), (name.to_string(), w)]
+                .into_iter()
+                .collect(),
+        };
+        assert_eq!(c("mailbox.sender_junk_log", 4.0).check_directions(), Ok(()));
+        assert_eq!(
+            c("mailbox.wrote_to_sender", -1.0).check_directions(),
+            Ok(())
+        );
+        assert!(matches!(
+            c("mailbox.iban_new_for_domain", -2.2).check_directions(),
+            Err(CombinerError::WrongDirection(_))
+        ));
+        assert!(matches!(
+            c("mailbox.sender_ok_log", 0.1).check_directions(),
+            Err(CombinerError::WrongDirection(_))
+        ));
+        assert!(matches!(
+            c("mailbox.undocumented", 0.0).check_directions(),
+            Err(CombinerError::WrongDirection(_))
+        ));
     }
 
     #[test]
@@ -725,7 +839,7 @@ mod tests {
             bias: 0.0,
             weights: [("no.such.feature".to_string(), 1.0)].into_iter().collect(),
         };
-        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
+        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None, None);
         assert!(o.directive.folder.is_none());
         assert!(o.record.provenance.errors[0].contains("UnknownInput"));
     }
@@ -778,6 +892,7 @@ mod tests {
             }),
             Some(&c),
             None,
+            None,
         );
         assert!((o.record.p_junk.unwrap() - 0.9526).abs() < 1e-3);
         assert_eq!(o.record.provenance.tiers, vec![0, 1]);
@@ -805,6 +920,7 @@ mod tests {
                 hasher: &hasher,
                 state: &state,
             }),
+            None,
         );
         assert_eq!(first.record.features["mailbox.first_contact"], 1.0);
         assert_eq!(first.record.provenance.snapshot.as_deref(), Some("mem/0"));
@@ -825,6 +941,7 @@ mod tests {
                 hasher: &hasher,
                 state: &state,
             }),
+            None,
         );
         assert!(second.record.features["mailbox.sender_ok_log"] > 0.0);
         assert!(second.directive.folder.is_none(), "the owner said not junk");
@@ -840,15 +957,64 @@ mod tests {
                 .into_iter()
                 .collect(),
         };
-        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None);
+        let o = run(&cfg(), PHISH, &ctx(), None, Some(&c), None, None);
         assert!(o.directive.folder.is_none());
         assert!(o.record.provenance.errors[0].contains("mailbox.first_contact"));
         assert!(o.keys.is_none() && o.record.provenance.snapshot.is_none());
     }
 
     #[test]
+    fn own_checks_verify_the_sender_record_their_lookups_and_feed_memory() {
+        let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/auth");
+        let dns = firstread_net::RecordedDns::load(&dir.join("dns.jsonl")).unwrap();
+        let expected: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap())
+                .unwrap();
+        let hasher = Hasher::new(b"memory-test");
+        let state = MailboxMemory::new();
+        for (name, verified) in [("rsa2048-relaxed", true), ("third-party-signer", false)] {
+            let raw = std::fs::read(dir.join(format!("{name}.eml"))).unwrap();
+            let at = expected[name]["at"].as_u64().unwrap();
+            let o = run(
+                &cfg(),
+                &raw,
+                &ctx(),
+                None,
+                None,
+                Some(Memory {
+                    hasher: &hasher,
+                    state: &state,
+                }),
+                Some(Checks {
+                    dns: &dns,
+                    clock: Clock::At(at),
+                }),
+            );
+            let f = &o.record.features;
+            assert_eq!(
+                f["auth.own_aligned"],
+                if verified { 1.0 } else { 0.0 },
+                "{name}"
+            );
+            assert_eq!(f["auth.own_dkim_pass"], 1.0, "{name}");
+            assert_eq!(
+                f["auth.own_unaligned_enforced"],
+                if verified { 0.0 } else { 1.0 }
+            );
+            assert_eq!(o.record.input.at, Some(at));
+            assert!(o.record.input.lookups.len() >= 2, "key and policy recorded");
+            assert_eq!(o.keys.unwrap().identity_verified, verified, "{name}");
+        }
+        // Without checks nothing of the kind is added or recorded.
+        let raw = std::fs::read(dir.join("rsa2048-relaxed.eml")).unwrap();
+        let o = run(&cfg(), &raw, &ctx(), None, None, None, None);
+        assert!(!o.record.features.contains_key("auth.own_aligned"));
+        assert!(o.record.input.lookups.is_empty() && o.record.input.at.is_none());
+    }
+
+    #[test]
     fn parse_failure_is_recorded_and_never_files() {
-        let o = run(&cfg(), b"", &ctx(), None, None, None);
+        let o = run(&cfg(), b"", &ctx(), None, None, None, None);
         assert!(o.record.input.parse_failed);
         assert!(o.directive.folder.is_none());
         assert!(o.record.directive.add[0].value.contains("parse=failed"));
