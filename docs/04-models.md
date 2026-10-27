@@ -127,6 +127,11 @@ Asynchronous. Runs only for:
 - natural-language rules users write ("tag mails where a customer asks for a refund as Retour"),
 - confirming a suspected campaign once, on one representative copy.
 
+Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `ml/sidecar/decision_server.py`
+serves a JEV-style model behind the sidecar protocol (it declares `*` and reads each question's
+text), and `firstreadd --tier2` asks it after delivery from a bounded in-memory queue. Not run on
+mail here: it needs its weights, a calibration fitted on the lab's dev split, and a Dutch evaluation.
+
 Starting point: the 0.8B JEV-style model via its GGUF runtime on CPU, which scores several
 questions in one call (not yet measured here), fine-tuned on Dutch. If a GPU box is available,
 JEV-9B is the stronger option. The output contract is identical to tier 1, so swapping is a config change.

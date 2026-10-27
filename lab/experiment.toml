@@ -25,6 +25,9 @@ version = "r1"
 [heads]
 # Logistic head on the embedding, per question.
 C = 1.0
+# Questions to train heads for (default ["is_spam"]); ml/heads/train.py LABELS says which the lab's
+# items label, e.g. ["is_spam", "risk_phishing"]. A question without enough labels gets no head.
+# questions = ["is_spam"]
 
 [combiner]
 # Logistic combiner over tier-0 facts and head logits, trained on the calib split.

@@ -252,6 +252,11 @@ model outputs use the typed-decision shape.
 
 (Values above illustrate the shape, not a real message.)
 
+Built as schema `firstread.verdict/2` ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)):
+`verdicts` (kind, p, holds, reasons), `tags`, `safety` (sender_verified, sender_relation, injection,
+hidden_text), the tier per decision, `input.user`. Not yet: `symbols`, `input.context` beyond user
+and recipient, `content_key`. A tier-2 update is a later record under the same id.
+
 ### 4.4 Events
 
 Every decision is one `Delivered` event carrying the record's identifiers, features, decisions,
@@ -261,7 +266,7 @@ versions and recorded lookups (not the content). Learning reads events, never th
 
 | output | rule |
 |---|---|
-| late keyword / folder updates (hook C) | idempotent; **never override the user**: a message the user already moved, flagged or un-junked is not touched again; never move mail out of a folder the user chose |
+| late keyword / folder updates (hook C) | idempotent; **never override the user**: a message the user already moved, flagged or un-junked is not touched again; never move mail out of a folder the user chose. Built for tier 2: keywords are only added; a move runs only for a message still in INBOX and without `$NotJunk` |
 | digest mail | platform-DKIM-signed, MAC'd, opt-in per mode, one-tap actions via POST confirmation pages |
 | abuse reports to senders' providers | optional, ARF (RFC 5965) format, only on explicit user "this is a scam" plus platform policy |
 | commons indicators | gated, bad-only ([10-commons.md](10-commons.md)) |

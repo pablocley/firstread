@@ -75,28 +75,38 @@ decided, the verdict and P(junk), under a MAC; the record behind its id holds ev
 files the message after the user's own rules, so a user's rule still wins (case C). If firstread
 fails or is slow, the message is delivered unchanged, minus the forged headers (cases E, F, H).
 
-**Where it goes** ([client contract](docs/03-client-contract.md)): more questions, more verdicts
-and more of the answers written out. A bank-detail change from a sender seen for the first time
-would arrive as:
+**More verdicts.** The same message through the full stamp, with a phishing combiner next to junk's
+(`firstread stamp lab/l2/msgs/spam.eml --combiner fixtures/stamp/junk-handset.json
+--verdict-combiner phishing=fixtures/stamp/phishing-handset.json --language nl`; both combiners
+are hand-set fixtures, not trained):
 
 ```
-X-Firstread: v=1; …; tiers=0,1; verdict=fraud; p=0.91; mac=…
-X-Firstread-Keywords: $Phishing fr-money
-X-Firstread-Scores: phishing=0.12; fraud=0.91; junk=0.04; important=0.66; urgency=4.1
-X-Firstread-Tags: money, request-action
-X-Firstread-Sender: relation=first-contact; domain-age-days=3; lookalike=1
-X-Firstread-Reasons: (plain language: "asks to pay to a new account; first mail from this sender")
+X-Firstread: v=1; d=inspect; id=st_7eb4ce9663d4d3af; tiers=0; models=none;
+ verdict=phishing; p=0.8000; mac=095def4e7bc33b0d7b24e975e6314c3e
+X-Firstread-Scores: phishing=0.80; junk=1.00
+X-Firstread-Sender: verified=no
+X-Firstread-Reasons: een link gaat naar een kaal IP-adres; een link toont een
+ ander adres dan waar hij heen gaat; het bericht bevat verborgen tekst
+X-Firstread-Folder: junk
+X-Firstread-Keywords: $Phishing $Junk $HasNoAttachment
 ```
 
-| | built | designed, not built |
-|---|---|---|
-| questions | `is_spam` | phishing, fraud, important, needs_action, category, urgency, user rules written in words |
-| verdicts | `junk`, `inbox` | `phishing`, `fraud`, `important`, `needs_action`, `bulk_low_interest` |
-| out | stamp, `$Junk`, Junk folder | scores, tags, sender relation, reasons, registered keywords (`$Important`, `$IsTrusted`, …), the API record |
-| models | tier 1: e5-small + logistic head | tier 2: a JEV-style decision model, async, for unsure cases |
+Phishing comes first because it outranks junk. The reasons are fixed texts chosen by the inputs
+that pushed the verdict up, never words from the message. With memory on, `-Sender` also carries
+the relation (first-contact, seen, wrote-to, correspondent) and the stamp the memory snapshot. With
+tier-1 heads, `-Tags` lists topics and intents above their threshold (`money, request-action` →
+`fr-money fr-request-action`). After delivery a decision model (tier 2) may answer what tier 1
+could not, and rules a person wrote in words ("mail that claims to come from my bank" → `fr-bank`).
+Hook C then adds keywords through `doveadm`, and moves mail only while it is still in INBOX and not
+marked `$NotJunk`. Every record, including a tier-2 update, can be read back from the record API by
+its own mailbox ([ADR-0020](docs/decisions/0020-verdicts-tier2-hook-c-api.md)).
 
-The values in the fraud example are the illustration from the client contract, not a
-measurement.
+| | built and tested | trained or measured | before it acts on mail |
+|---|---|---|---|
+| questions | 34 in [`questions.json`](crates/firstread-stamp/data/questions.json): risks, asks, injection, importance, sender kind, intent, urgency, 16 topics, plus user rules | `is_spam` head (lab) | heads for `risk_phishing`, `risk_fraud`, `asks_payment_or_bank_change` train on synthetic positives only; the rest have no labels |
+| verdicts | phishing, fraud, junk, needs_action, important, bulk_low_interest: one combiner each, thresholds in [`actions.json`](crates/firstread-stamp/data/actions.json), safety floor in code | junk (lab) | a trained combiner per verdict; phishing and fraud can be trained from the lab, the others need labels |
+| out | stamp with `state=`, scores, tags, sender relation, reasons in nl and en, `$Phishing` `$Junk` `$Important` `$HasAttachment` `$HasNoAttachment` `$CanUnsubscribe` `$Autosent` `$IsTrusted` `fr-*`, record `verdict/2` with safety block, read-only record API | | a rerun of the Dovecot cases (ham now gets keywords from facts); the API's authentication front end |
+| models | tier 1 heads for any question kind; tier 2 behind the same contract, from a queue, with user rules and hook C | tier 1: e5-small + logistic head | tier 2: the JEV-style model's weights, a calibration on the lab's dev split, a Dutch evaluation |
 
 ## Try it
 
@@ -111,8 +121,9 @@ Dovecot setup (two global Sieve scripts and the filter in `sieve_filter_bin_dir`
 
 Status: the delivery path, tier 0 and tier 1 run end to end in a lab, on public corpora and on real
 Dovecot 2.3.21. Not deployed. Mailbox memory and the owner's feedback from Dovecot are built and
-measured, not yet good enough to switch on; organisation and platform learning, the API and tier 2
-are designed, not built ([status](#status)).
+measured, not yet good enough to switch on. All verdicts, the detail headers, tier 2, user rules,
+hook C and a read-only record API are built and tested on fixtures, but only junk is trained;
+organisation and platform learning, search and MCP are designed, not built ([status](#status)).
 
 ## What is different
 
@@ -287,16 +298,17 @@ check: 0.0). [Measurement](docs/measurements/2026-10-27-auth-dns-memory-v1.md).
 | built and measured | designed, not built |
 |---|---|
 | parser, tier-0 facts, IBAN mod-97, link analysis, trusted `Authentication-Results`, own DKIM and DMARC alignment over recorded or live DNS | SPF (needs the client IP from our own MTA), ARC |
-| provider contract, calibration, combiner, stamp with HMAC, record | tier 2 (decoder model) and the async queue |
-| `firstread-filter` (fallback, deadline), `firstreadd` (sidecar, records, `--shadow`) | API (JMAP shapes), MCP server, safety block |
+| provider contract, calibration, combiner, stamp with HMAC, record | trained combiners for verdicts other than junk; a calibrated tier-2 model |
+| `firstread-filter` (fallback, deadline), `firstreadd` (sidecar, records, `--shadow`) | API beyond the record (JMAP shapes, views, search, feedback), MCP server, `model_safe_text` |
+| built, tested on fixtures, not measured: all six verdicts with reasons, detail headers, keywords from facts, tier 2 from a queue, user rules, hook C, record API (ADR-0020) | |
 | lab: L1 harness, L2 on Dovecot 2.3.21, three-axis loop, sealed split | learning per organisation / platform, commons |
-| mailbox memory split by verified identity (keyed hashes, event log), owner feedback via IMAPSieve (hook D), learning test | backfill from Sent, hook C, digest |
+| mailbox memory split by verified identity (keyed hashes, event log), owner feedback via IMAPSieve (hook D), learning test | backfill from Sent, digest |
 
 ## Repository
 
 ```
 crates/   Rust: core contract, parse, auth, links, pipeline, filter, daemon, CLI (+ stubs for the rest)
-ml/       Python: tier-1 sidecar (providers, ONNX export, server), heads and combiner training
+ml/       Python: tier-1 and tier-2 sidecars (providers, ONNX export, servers), heads and combiner training, tests
 lab/      the lab: harness, loop, L2 Dovecot setup, data references, results; lab/README.md reproduces it
 docs/     design 00–15, decisions/ (ADRs), measurements/
 ```

@@ -12,6 +12,14 @@ export/       ONNX export, int8 quantisation, parity checks against fp32        
 eval/         the evaluation harness over fixtures/ and the private eval set     (to build)
 ```
 
+## Sidecars, heads and their tests
+
+`sidecar/server.py` serves tier-1 heads (a vector per `noul` question, a matrix per choice or
+score question) over cached embeddings; `sidecar/decision_server.py` serves a JEV-style decision
+model as tier 2 (any question, by its text). `heads/train.py` trains heads for the questions in
+`[heads] questions` that the lab's items label, and `train.py verdict <kind>` a verdict's combiner.
+Tests, with the lab's Python: `python3 -I tests/test_sidecars.py` and `python3 -I tests/test_train.py`.
+
 ## Running the existing benchmarks
 
 ```

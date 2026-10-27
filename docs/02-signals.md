@@ -117,7 +117,11 @@ Indicators from other deployments, weighted by how many independent sources conf
 ## Verdicts
 
 A calibrated combiner turns all of the above into the few conclusions clients act on, each with
-its top reasons:
+its top reasons. Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): one combiner per
+verdict, thresholds and keywords in `crates/firstread-stamp/data/actions.json`, reasons from the
+inputs that pushed a verdict up; a verdict without a combiner is not decided. Only junk's combiner
+is trained (the lab); phishing and fraud can be trained on synthetic positives; the others have no
+labels yet:
 
 | verdict | drives |
 |---|---|

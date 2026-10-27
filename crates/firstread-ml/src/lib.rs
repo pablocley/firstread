@@ -7,7 +7,8 @@
 //! - tier 1: one contextual embedding per message, then small heads, each returning a calibrated
 //!   `noul` / `choice` / `score` distribution
 //! - tier 2: a client for the separate decision-model service (llama.cpp or vLLM), with a queue,
-//!   batching and confidence-gated escalation; never called in the delivery path
+//!   batching and confidence-gated escalation; never called in the delivery path. Built for now in
+//!   `firstreadd` over the sidecar protocol (`ml/sidecar/decision_server.py`, ADR-0020)
 //! - record the model release in every decision
 //!
 //! Intended dependencies: `ort` (pinned exactly; a release candidate at design time) and

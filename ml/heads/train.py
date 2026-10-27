@@ -3,11 +3,16 @@
 Usage:
   python3 -I train.py heads <run_dir> <experiment.toml> <lab_data> <cache_dir>
   python3 -I train.py combiner <run_dir> <experiment.toml> <lab_data> <calib_records.jsonl>
+  python3 -I train.py verdict <kind> <run_dir> <experiment.toml> <lab_data> <calib_records.jsonl>
 
-`heads` trains one logistic head per question on cached embeddings of the train split, then fits
-a temperature per question on the calib split. `combiner` trains the linear combiner over the
-tier-0 features and head logits that the real pipeline recorded for the calib split.
-Outputs (in <run_dir>): heads.json, calibration.json, combiner.json.
+`heads` trains one logistic head per question in `[heads] questions` (default `["is_spam"]`) on
+cached embeddings of the train split, then fits a temperature per question on the calib split. A
+question is trained only where the lab's items say its answer (LABELS below) and both answers are
+common enough; otherwise it gets no head and no calibration, so the daemon never asks it.
+`combiner` trains junk's linear combiner over the tier-0 features and head logits that the real
+pipeline recorded for the calib split. `verdict` trains the combiner of another verdict the same
+way, from VERDICT_LABELS, without mailbox facts for the safety verdicts (the safety floor).
+Outputs (in <run_dir>): heads.json, calibration.json, combiner.json, combiner-<kind>.json.
 """
 import hashlib
 import json
@@ -22,7 +27,35 @@ from sklearn.linear_model import LogisticRegression
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sidecar"))
 from providers import Cache, resolve, space_id  # noqa: E402
 
-QUESTION = "is_spam"
+# Which items answer which question: 1, 0, or None (the item does not say; left out, never guessed).
+# Legitimate mail is never phishing or fraud. Junk says which kind only in the synthetic Dutch slice,
+# whose subclasses are labelled by construction (lab/harness/synth_nl.py): heads and combiners for
+# these questions rest on synthetic positives, which docs/13-lab.md calls optimistic.
+SYNTH = "synthetic_nl"
+FRAUD = {"fraud_ceo", "fraud_iban"}
+
+
+def kind_label(subclasses):
+    def f(it):
+        if it["label"] != "junk":
+            return 0
+        if it["slice"] != SYNTH:
+            return None
+        return 1 if it.get("subclass") in subclasses else 0
+    return f
+
+
+LABELS = {
+    "is_spam": lambda it: 1 if it["label"] == "junk" else 0,
+    "risk_phishing": kind_label({"phishing"}),
+    "risk_fraud": kind_label(FRAUD),
+    "asks_payment_or_bank_change": lambda it: (None if it["slice"] != SYNTH else
+                                               1 if it.get("subclass") in FRAUD | {"invoice", "reminder"} else 0),
+}
+VERDICT_LABELS = {"junk": LABELS["is_spam"], "phishing": LABELS["risk_phishing"], "fraud": LABELS["risk_fraud"]}
+SAFETY = {"phishing", "fraud"}
+# Fewest examples of each answer a head or combiner needs in a split.
+MIN_EACH = {"train": 20, "calib": 5}
 
 
 def manifest(lab, split):
@@ -40,17 +73,24 @@ def idem_key(path, recipient):
     return h.hexdigest()
 
 
-def xy(lab, split, rv, cache):
+def xy(lab, split, rv, cache, label=LABELS["is_spam"]):
     items = manifest(lab, split)
     rend = rendered(lab, split, rv)
     X, y = [], []
     for it in items:
+        lab_ = label(it)
+        if lab_ is None:
+            continue
         v = cache.get(rend[it["id"]]["text_sha256"])
         if v is None:
             raise SystemExit(f"missing embedding for {it['id']}")
         X.append(v)
-        y.append(1 if it["label"] == "junk" else 0)
+        y.append(lab_)
     return np.vstack(X), np.asarray(y)
+
+
+def enough(y, split):
+    return int(y.sum()) >= MIN_EACH[split] and int(len(y) - y.sum()) >= MIN_EACH[split]
 
 
 def fit_temperature(z, y):
@@ -75,18 +115,34 @@ def heads(run_dir, exp, lab, cache_dir):
     rv = exp["render"]["version"]
     space = space_id(provider_cfg(exp), rv)
     cache = Cache(cache_dir, space)
-    Xtr, ytr = xy(lab, "train", rv, cache)
-    clf = LogisticRegression(C=float(exp["heads"]["C"]), max_iter=4000)
-    clf.fit(Xtr, ytr)
-    w, b = clf.coef_[0].astype(float), float(clf.intercept_[0])
-    digest = hashlib.sha256(np.asarray(w, dtype=np.float32).tobytes() + str(b).encode()).hexdigest()[:10]
-    release = f"heads:{name}:{digest}"
-    json.dump({"release": release, "space": space, "questions": {QUESTION: {"w": w.tolist(), "b": b}}},
+    trained, temps, report = {}, {}, {}
+    for q in exp["heads"].get("questions", ["is_spam"]):
+        if q not in LABELS:
+            report[q] = "no labels in the lab"
+            continue
+        Xtr, ytr = xy(lab, "train", rv, cache, LABELS[q])
+        Xc, yc = xy(lab, "calib", rv, cache, LABELS[q])
+        if not (enough(ytr, "train") and enough(yc, "calib")):
+            report[q] = f"too few labels (train {int(ytr.sum())}/{len(ytr)}, calib {int(yc.sum())}/{len(yc)})"
+            continue
+        clf = LogisticRegression(C=float(exp["heads"]["C"]), max_iter=4000)
+        clf.fit(Xtr, ytr)
+        w, b = clf.coef_[0].astype(float), float(clf.intercept_[0])
+        trained[q] = {"w": w.tolist(), "b": b}
+        temps[q] = fit_temperature(Xc @ w + b, yc)
+        report[q] = {"temperature": temps[q], "train_n": int(len(ytr)), "train_pos": int(ytr.sum())}
+    if not trained:
+        sys.exit(f"no head could be trained: {report}")
+    blob = b"".join(np.asarray(h["w"], dtype=np.float32).tobytes() + str(h["b"]).encode()
+                    for _, h in sorted(trained.items()))
+    # One head keeps the release id it always had; more heads hash their names too.
+    if list(trained) != ["is_spam"]:
+        blob += json.dumps(sorted(trained)).encode()
+    release = f"heads:{name}:{hashlib.sha256(blob).hexdigest()[:10]}"
+    json.dump({"release": release, "space": space, "questions": trained},
               open(os.path.join(run_dir, "heads.json"), "w"))
-    Xc, yc = xy(lab, "calib", rv, cache)
-    t = fit_temperature(Xc @ w + b, yc)
-    json.dump({"release": release, "temperatures": {QUESTION: t}}, open(os.path.join(run_dir, "calibration.json"), "w"))
-    print(json.dumps({"release": release, "temperature": t, "train_n": int(len(ytr))}))
+    json.dump({"release": release, "temperatures": temps}, open(os.path.join(run_dir, "calibration.json"), "w"))
+    print(json.dumps({"release": release, "questions": report}))
 
 
 MEMORY = "mailbox."
@@ -203,7 +259,38 @@ def combiner(run_dir, exp, lab, records_path):
     print(json.dumps({"release": f"combiner:{digest}", "inputs": len(weights), "calib_n": int(len(y))}))
 
 
+def verdict(kind, run_dir, exp, lab, records_path):
+    """The combiner of one more verdict over what the pipeline recorded for the calib split. For
+    phishing and fraud mailbox facts are left out entirely, so nothing a mailbox owner taught can
+    lower them (firstreadd refuses such a combiner)."""
+    if kind not in VERDICT_LABELS:
+        sys.exit(f"{kind}: no labels in the lab for this verdict")
+    items = {idem_key(it["path"], it["recipient"]): it for it in manifest(lab, "calib")}
+    recs = [json.loads(l) for l in open(records_path)]
+    recs = [r for r in recs if r["idempotency_key"] in items and not r["input"]["parse_failed"]
+            and VERDICT_LABELS[kind](items[r["idempotency_key"]]) is not None]
+    y = np.asarray([VERDICT_LABELS[kind](items[r["idempotency_key"]]) for r in recs])
+    if not enough(y, "calib"):
+        sys.exit(f"{kind}: too few labels in calib ({int(y.sum())} of {len(y)})")
+    disabled = exp.get("combiner", {}).get("disabled", [])
+    names = sorted({k for r in recs for k in r["features"]})
+    names = [n for n in names if not any(n.startswith(d) for d in disabled)
+             and not (kind in SAFETY and n.startswith(MEMORY))]
+    X = np.asarray([[r["features"].get(n, 0.0) for n in names] for r in recs], dtype=float)
+    keep, w, b = fit_logistic(X, y, exp)
+    weights = {n: float(v) for n, v in zip([n for n, k in zip(names, keep) if k], w)}
+    digest = hashlib.sha256(json.dumps(weights, sort_keys=True).encode() + str(b).encode()).hexdigest()[:10]
+    release = f"combiner-{kind}:{digest}"
+    json.dump({"release": release, "bias": b, "weights": weights},
+              open(os.path.join(run_dir, f"combiner-{kind}.json"), "w"), indent=1, sort_keys=True)
+    print(json.dumps({"release": release, "inputs": len(weights), "calib_n": int(len(y)), "calib_pos": int(y.sum())}))
+
+
 if __name__ == "__main__":
+    if sys.argv[1] == "verdict":
+        kind, run_dir, exp_path, lab, records = sys.argv[2:7]
+        verdict(kind, run_dir, tomllib.load(open(exp_path, "rb")), lab, records)
+        sys.exit(0)
     stage, run_dir, exp_path, lab = sys.argv[1:5]
     exp = tomllib.load(open(exp_path, "rb"))
     if stage == "heads":

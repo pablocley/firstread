@@ -18,3 +18,7 @@ inbound/injection/     messages that try to talk the model out of a verdict
 inbound/malformed/     broken MIME, huge headers, deep nesting (parser hardening)
 outbound/              drafts for the pre-send checks
 ```
+
+`stamp/`: hand-set combiners (not trained) for `firstread stamp`, so the README's example output
+can be reproduced: `firstread stamp lab/l2/msgs/spam.eml --combiner fixtures/stamp/junk-handset.json
+--verdict-combiner phishing=fixtures/stamp/phishing-handset.json --language nl`.

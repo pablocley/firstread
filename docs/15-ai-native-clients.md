@@ -74,6 +74,11 @@ offline use. Semantic search needs the server's space and stays there.
 - Message ids map to the IMAP message (mailbox, UIDVALIDITY, UID) and survive moves. Which
   Dovecot identifier carries that best is to be verified on the deployed version.
 
+Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `GET /v1/messages/{id}`, the record
+with its safety block, read-only on a local socket, only for the record's own mailbox; the front end
+that authenticates the user, `model_safe_text`, views, search, feedback over HTTP, check-draft and
+MCP are not built.
+
 | endpoint | returns |
 |---|---|
 | `GET /v1/views`, `GET /v1/views/{id}/messages` | the server's views and their messages, with record summaries |

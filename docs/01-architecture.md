@@ -32,10 +32,10 @@ is a verdict and a bounded edit list, never a new message.
 |---|---|---|
 | **A** delivery | a global `sieve_before` script runs `firstread-filter` as a Sieve `filter` test with the message on stdin and the context in `USER`, `SENDER`, `RECIPIENT`, `ORIG_RECIPIENT`; the filter gets a directive from the daemon over a Unix socket and applies the header edits to the original bytes itself (body untouched); the user's own rules run next; a global `sieve_after` script files and flags from the derived headers ([12 · Interfaces](12-interfaces.md), section 4.1.1) | primary inbound path; MTA-agnostic |
 | **B** SMTP milter | `firstread-milter` on Postfix | optional pre-acceptance action; Exim has no milter ([Rspamd's integration table](https://docs.rspamd.com/tutorials/integration)) |
-| **C** post-delivery | `doveadm flags add -u <user> <keyword> <search query>` ([doveadm-flags(1)](https://doc.dovecot.org/main/core/man/doveadm-flags.1.html)) or IMAP with a master user | late results and retroactive verdicts on mail already delivered |
+| **C** post-delivery | `doveadm flags add -u <user> <keyword> <search query>` ([doveadm-flags(1)](https://doc.dovecot.org/main/core/man/doveadm-flags.1.html)) or IMAP with a master user; built for tier-2 updates (adds keywords; moves only from INBOX, never for `$NotJunk`; [ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)) | late results and retroactive verdicts on mail already delivered |
 | **D** moves | Dovecot IMAPSieve (RFC 6785) on copies into and out of Junk and other folders, and copies reaching Sent; built for Junk and Sent ([12](12-interfaces.md) section 4.6) | strongest implicit feedback |
 | **E** outbound | submission milter (Postfix) or Exim ACL | [05-sending.md](05-sending.md) |
-| **F** API | HTTP on the daemon | webmail, digest actions, admin, support |
+| **F** API | HTTP on the daemon; built: the record, read-only, on a local socket, per mailbox ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)) | webmail, digest actions, admin, support |
 | **G** mailbox events | Dovecot push-notification Lua driver: `message_new`, `message_read`, `message_trash`, `message_expunge`, `flags_set` / `flags_clear` with keyword lists ([plugin docs](https://doc.dovecot.org/main/core/plugins/push_notification_lua.html)) | implicit feedback: read, deleted, flagged, tags removed or added |
 
 To verify on the deployed Dovecot version (the push-notification Lua page is the `main` branch
@@ -104,18 +104,18 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 | `firstread-auth` | built: trusted `Authentication-Results`, DKIM (RFC 6376 / 8301 / 8463) and DMARC alignment judged at the delivery time ([ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)); to come: SPF, ARC |
 | `firstread-net` | built: the DNS contract, every lookup kept for the record, a recorded resolver for replay, a live stub resolver with deadlines, a per-message budget and a cache; to come: DNSBL, MTA-STS / DANE / TLS-RPT, RDAP |
 | `firstread-links` | static URL analysis, lookalikes, brand impersonation, checksummed extractors |
-| `firstread-ml` | embeddings, heads, calibration, content cache keys, tier-2 client |
+| `firstread-ml` | embeddings, heads, calibration, content cache keys in Rust (to come; today the sidecars in `ml/sidecar/` serve tier 1 and tier 2 over the sidecar protocol, and `firstreadd` is their client) |
 | `firstread-graph` | mailbox memory (built: senders and domains split by authentication, correspondents, threads the owner started, IBANs per verified domain, the owner's labels; [ADR-0018](decisions/0018-mailbox-memory-v0.md), [ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)); organisation memory, sender profiles and folders to come |
 | `firstread-learn` | learners over the event log: counters, exemplars, residual heads, platform heads, promotion |
 | `firstread-events` | event schema and adapters: delivery, IMAPSieve, push-notification Lua, digest and API feedback |
 | `firstread-commons` | indicator export with privacy gates, signing, hub client, and the hub itself |
-| `firstread-stamp` | verdicts to a directive (headers, keywords, folder key, Subject prefix) and the API record |
+| `firstread-stamp` | built: the question registry, verdicts to keywords and a folder key by threshold, the detail headers with reasons per language, keywords from facts, user rules, all from data files ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)); to come: Subject prefix, POP3 thresholds |
 | `firstread-digest` | the periodic digest mail and its signed one-tap actions |
 | `firstread-outbound` | pre-send checks, submission checks, delivery diagnostics, domain health |
-| `firstreadd` | the daemon: sockets, API, tier scheduling, queues, load shedding, metrics |
+| `firstreadd` | the daemon: sockets, records; built: tier 2 from a bounded queue, hook C, the record API; to come: load shedding, metrics, hook G |
 | `firstread-filter` | the delivery-time client Dovecot runs; fails open |
 | `firstread-milter` | Postfix milter front-end |
-| `firstread` | CLI: inspect, stamp, replay, evaluate, and the lab ([13](13-lab.md)) |
+| `firstread` | CLI: inspect, stamp (built), replay, evaluate, and the lab ([13](13-lab.md)) |
 
 Library crates know nothing about sockets, Dovecot or Postfix. Every signal is testable on one
 `.eml`; every learner is testable on a recorded event log.

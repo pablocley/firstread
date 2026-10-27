@@ -40,6 +40,11 @@ X-Firstread-Campaign: id=<cluster id>; mailboxes=312
 X-Firstread-Reasons: =?UTF-8?Q?…?=  (localised, plain language)
 ```
 
+Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `X-Firstread` (with `state=` when
+memory is on), `-Folder`, `-Keywords`, `-Scores`, `-Tags`, `-Reasons` (nl, en) and `-Sender` with
+`relation` and `verified`. Not built: `Authentication-Results` from firstread, `-Campaign`, and the
+sender's domain age and lookalike flag. `firstread stamp <file.eml>` prints what a message would get.
+
 - `X-Firstread` is the one machine-parseable summary; the detail headers can be switched off per platform.
 - `mac` is an HMAC with a per-deployment key; webmail, the digest and the API show a stamp as
   firstread's only when it verifies, so stamps inside imported or appended mail cannot pass as real.
@@ -71,6 +76,10 @@ Registered first ([IANA IMAP and JMAP keywords](https://www.iana.org/assignments
 | `$HasAttachment` / `$HasNoAttachment` | RFC 9979 | from MIME structure |
 | `$IsTrusted` | RFC 9979 | established, authenticated correspondent |
 | `$Followed` / `$Notify` / `$Muted` | RFC 9979 | only through features the user turned on |
+
+Built: `$Phishing`, `$Junk`, `$Important` from verdicts; `$HasAttachment`, `$HasNoAttachment`,
+`$CanUnsubscribe`, `$Autosent`, `$IsTrusted` and `fr-first-contact` from facts; `fr-<tag>` from tags
+and user rules. Not built: `$Unsubscribed`, `$Followed`, `$Notify`, `$Muted`.
 
 Own keywords use a configurable prefix (default `fr-`) and stable ids for the user-facing tags
 (`fr-money`, `fr-orders`, `fr-request-action`, `fr-first-contact`, user rule tags). Whether

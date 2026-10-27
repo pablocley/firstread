@@ -43,7 +43,11 @@ space = space_id(cfg, a.render_version)
 heads = json.load(open(a.heads))
 if heads["space"] != space:
     sys.exit(f"heads were trained in space {heads['space']}, not {space}")
-W = {q: (np.asarray(h["w"], dtype=np.float32), float(h["b"])) for q, h in heads["questions"].items()}
+# A noul head is a vector ("w", "b": one logit for true); a choice or score head is a matrix ("W", "b": one
+# logit per outcome, in outcome order).
+W = {q: ((np.asarray(h["W"], dtype=np.float32), np.asarray(h["b"], dtype=np.float32)) if "W" in h
+         else (np.asarray(h["w"], dtype=np.float32), float(h["b"])))
+     for q, h in heads["questions"].items()}
 cache = None if a.no_cache else Cache(a.cache, space)
 embedder = Embedder(cfg) if a.preload else None
 stats = open(a.stats, "a") if a.stats else None
@@ -82,8 +86,7 @@ def handle(req):
         out = []
         for q in req["questions"]:
             w, b = W[q]
-            z = float(v @ w + b)
-            out.append([0.0, z])
+            out.append((w @ v + b).tolist() if w.ndim == 2 else [0.0, float(v @ w + b)])
         if stats:
             stats.write(json.dumps({"key": hashlib.sha256(req["text"].encode("utf-8")).hexdigest(),
                                     "cpu_ms": (time.process_time() - c0) * 1000,
