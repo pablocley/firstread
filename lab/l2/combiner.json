@@ -1,10 +1,12 @@
 {
  "bias": -6.0,
- "release": "combiner:l2-fixture-handset",
+ "release": "combiner:l2-fixture-handset-2",
  "weights": {
   "body.hidden_styles_log": 3.0,
   "links.ip_literal": 5.0,
   "links.text_target_mismatch": 2.0,
+  "mailbox.sender_junk_log": 20.0,
+  "mailbox.sender_ok_log": -20.0,
   "subject.caps_ratio": 2.0,
   "subject.exclamations": 1.0
  }
