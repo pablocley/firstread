@@ -1,0 +1,189 @@
+{"type": "TXT", "name": "20251104._domainkey.gmail.com", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtOzIjTYVUYZDbm03lsL4MGxSUVJWALTSueNRnCvCdM5d0i26EVUH7jprqIFdBSnMXQDHCkwcH1bFjtbfHCzFfWlpzOWducPPU0E+ut0rRqIy4NKY8CJlW39Q+AHJ70h+k2VadmQt0A1Yijg/Dk73NuJAz8KDNgz2x14nDVkINRlynAU7EosarRRhVGKqlNrYdp/os6QYaetfYNdQRJDecOARNObGRET/sW0m5Ya5SBGsaw8VSGluCwSZh+zShTXaOyA1WnpHNtAoCQClFPn9vmm6Cb0Z2gYF0g/+qZ1FCnaj1+aaJGzhqVOXGtHGWM3dLpwC7Rul6STfFD521JeqpQIDAQAB"]}
+{"type": "TXT", "name": "20260414._domainkey.pengutronix.de", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhKqPE6FIeChaZAy+QdfaDFIrOkECeXBmJ0HNBNPGDHqCEoJaWukNS6V+aGgmjXXR1nD79gSAbsy7OpWL/Sb9z3Ib60JyeNS/qn/zvrcMfMPWEPB/m2P9QcNwzfmN5BCup60sOi6bpZ84OTmsGk3Qj7uMyjjlHBIS8ijQQZEVvSByT4DOgHS+yBx5SLR05qRXhK9V0nYHLsMp7s+Q5ZlzZwUsO4U3ZXliiVa9KfIkXaZhgBSQJmTCYc5GX7qidufth3a0OZ0j4nkBd2ssAGh+UFdAjzd/qhYpKGfc15eHDpLob0Sm4TRzJJ4Aginln6CpVO77zIrpJ67tiU9V9klrPwIDAQAB"]}
+{"type": "TXT", "name": "_dmarc.abusecampus.homes", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.addwish.com", "result": "records", "records": ["v=DMARC1; p=reject; pct=100; rua=mailto:re+qpcdvsr0gau@dmarc.postmarkapp.com; sp=reject; aspf=r;"]}
+{"type": "TXT", "name": "_dmarc.adeogroup.co.uk", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com,rua=mailto:support@adeogroup.co.uk,mailto:8bb2ca7b@mxtoolbox.dmarc-report.com; ruf=mailto:8bb2ca7b@forensics.dmarc-report.com; sp=none; pct=100; ri=86400"]}
+{"type": "TXT", "name": "_dmarc.afap-formazione.net", "result": "records", "records": ["v=DMARC1; p=none; adkim=r; aspf=r;"]}
+{"type": "TXT", "name": "_dmarc.alfarashun.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.amaztest.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.answersrome.property", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@answersrome.property; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.apache.org", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.barbaradeangelis.com", "result": "records", "records": ["v=DMARC1; p=quarantine; pct=100; rua=mailto:barbara@barbaradeangelis.com; ruf=mailto:barbara@barbaradeangelis.com"]}
+{"type": "TXT", "name": "_dmarc.bellwhy.skin", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.blackwoodseven.com", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:3jj1mklx@ag.dmarcian.com"]}
+{"type": "TXT", "name": "_dmarc.brunomarcshoes.com", "result": "records", "records": ["v=DMARC1; p=none; adkim=r; aspf=r;"]}
+{"type": "TXT", "name": "_dmarc.canadian-forum.com", "result": "records", "records": ["v=DMARC1; p=none"]}
+{"type": "TXT", "name": "_dmarc.cfwb.be", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:postmaster@cfwb.be; ruf=mailto:postmaster@cfwb.be"]}
+{"type": "TXT", "name": "_dmarc.citytechnologies.property", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@citytechnologies.property; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.classroomdojo.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.codeademy.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.collabora.com", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc@collabora.com; ruf=mailto:dmarc@collabora.com; sp=none; adkim=r; aspf=r; pct=100"]}
+{"type": "TXT", "name": "_dmarc.controversialclean.homes", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.coteacotes.org", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@coteacotes.org; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.crossway.org", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc-reports@crossway.org,mailto:dmarc@crossway.uriports.com; ruf=mailto:dmarc-reports@crossway.org,mailto:dmarc@crossway.uriports.com; fo=1:d:s"]}
+{"type": "TXT", "name": "_dmarc.datastreamk.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.digialchalk.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.diyarbakirsoz.com", "result": "records", "records": ["v=DMARC1; p=quarantine"]}
+{"type": "TXT", "name": "_dmarc.eaglesnone.living", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@eaglesnone.living; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.eff.org", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc_rua@eff.org; ruf=mailto:dmarc_ruf@eff.org;"]}
+{"type": "TXT", "name": "_dmarc.elistire.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.eljardindelgigante.com", "result": "records", "records": ["v=DMARC1; p=none; aspf=r; adkim=r;"]}
+{"type": "TXT", "name": "_dmarc.fifthhammond.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.forest.org.uk", "result": "records", "records": ["v=DMARC1; p=quarantine; sp=reject; np=reject; rua=mailto:hsdac4wu0l@rua.powerdmarc.com,mailto:rua+forest.org.uk@dmarc.barracudanetworks.com; ruf=mailto:hsdac4wu0l@ruf.powerdmarc.com,mailto:ruf+forest.org.uk@dmarc.barracudanetworks.com; fo=1;"]}
+{"type": "TXT", "name": "_dmarc.foundationgood.skin", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.freenasheed.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.furtherfood.com", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:2fedd0e0@mxtoolbox.dmarc-report.com,mailto:ashely@furtherfood.com,mailto:garrett@furtherfood.com; ruf=mailto:2fedd0e0@forensics.dmarc-report.com,mailto:ashely@furtherfood.com,mailto:garrett@furtherfood.com; fo=1"]}
+{"type": "TXT", "name": "_dmarc.gallbladderattack.com", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc@gallbladderattack.com;"]}
+{"type": "TXT", "name": "_dmarc.gamedo.it.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.gatesseries.property", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@gatesseries.property; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.gayboystube.com", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.gbaa.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.gentoo.org", "result": "records", "records": ["v=DMARC1; p=none; sp=none; rf=afrf; pct=100; ri=86400"]}
+{"type": "TXT", "name": "_dmarc.goyokikiya.com", "result": "records", "records": ["v=DMARC1; p=none; aspf=r; adkim=r"]}
+{"type": "TXT", "name": "_dmarc.griffscomedyclub.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.griquenon.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.gtucker.io", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.guerreiro.com", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@mailbiz.com.br; ruf=mailto:abuse@mailbiz.com.br"]}
+{"type": "TXT", "name": "_dmarc.hammerspace.com", "result": "records", "records": ["v=DMARC1; p=quarantine; sp=quarantine; pct=100; adkim=s; aspf=s; fo=1; ri=86400; rua=mailto:emailadmin@hammerspace.com; ruf=mailto:emailadmin@hammerspace.com"]}
+{"type": "TXT", "name": "_dmarc.inkcaetridges.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.inovecerto.com.br", "result": "records", "records": ["v=DMARC1; p=none; sp=quarantine; rua=mailto:dmarc@emailsecurityonline.com"]}
+{"type": "TXT", "name": "_dmarc.isealedair.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.jsaginnovations.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.kccreamation.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.kidswordsmyth.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.languagesweird.world", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@languagesweird.world; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.lavidadeviaje.com", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.legsproducts.living", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@legsproducts.living; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.lejournaldejade.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.lensdoctor.com", "result": "records", "records": ["v=DMARC1; p=none; aspf=r; adkim=r;"]}
+{"type": "TXT", "name": "_dmarc.ligapiporossi.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.linux-foundation.org", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.linux-m68k.org", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.llika.com", "result": "records", "records": ["v=DMARC1; p=reject; rua=mailto:info@llika.com"]}
+{"type": "TXT", "name": "_dmarc.mainlining.org", "result": "records", "records": ["v=DMARC1; p=reject; rua=mailto:postmaster@mainlining.org; ruf=mailto:postmaster@mainlining.org"]}
+{"type": "TXT", "name": "_dmarc.mapstudy.property", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@mapstudy.property; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.materialdeaprendizaje.com", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.mcn.org", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc@mcn.org; ruf=mailto:dmarc@mcn.org; fo=1; adkim=r; aspf=r; pct=100; rf=afrf; ri=86400; sp=none"]}
+{"type": "TXT", "name": "_dmarc.mcpcnserver.com", "result": "records", "records": ["v=DMARC1;p=none;rua=mailto:dmarc_report@service.aliyun.com"]}
+{"type": "TXT", "name": "_dmarc.meanwhileexistence.homes", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.mevlana.net", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.microchip.com", "result": "records", "records": ["v=DMARC1; p=reject; fo=1; rua=mailto:n13hm4ov@ag.c1.dmarcian.com; ruf=mailto:n13hm4ov@fr.c1.dmarcian.com;"]}
+{"type": "TXT", "name": "_dmarc.microsoft.com", "result": "records", "records": ["v=DMARC1; p=reject; pct=100; rua=mailto:itex-rua@microsoft.com; ruf=mailto:itex-ruf@microsoft.com; fo=1"]}
+{"type": "TXT", "name": "_dmarc.moz.su", "result": "records", "records": ["v=DMARC1; p=quarantine; rua=mailto:postmaster@moz.su"]}
+{"type": "TXT", "name": "_dmarc.mozilla.org", "result": "records", "records": ["v=DMARC1; p=reject; pct=100; adkim=r; aspf=r; rua=mailto:dmarc_agg@vali.email,mailto:dmarc@mozilla.com"]}
+{"type": "TXT", "name": "_dmarc.navyvanilla.net", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@navyvanilla.net; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.novonordisk.co.jp", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarc_agg@vali.email,mailto:6hahdnzv@ag.eu.dmarcadvisor.com; ruf=mailto:6hahdnzv@fr.eu.dmarcadvisor.com"]}
+{"type": "TXT", "name": "_dmarc.npmjs.com", "result": "records", "records": ["v=DMARC1; p=quarantine;  pct=5; rua=mailto:dmarc@github.com,mailto:d@rua.agari.com"]}
+{"type": "TXT", "name": "_dmarc.nyssafetycouncil.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.oddopia.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.olympicdifferently.property", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@olympicdifferently.property; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.olympinvesting.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.omgsof.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.onethousandbulbs.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.orsdermychecks.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.osmh.on.ca", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:dmarcreports@osmh.on.ca"]}
+{"type": "TXT", "name": "_dmarc.outdoorcheaper.beer", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@outdoorcheaper.beer; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.oxerionroom.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.partilla.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.post2go.ru", "result": "records", "records": ["v=DMARC1; p=none"]}
+{"type": "TXT", "name": "_dmarc.printo.it", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:printo@gaslini.org; ruf=mailto:printo@gaslini.org; fo=1;"]}
+{"type": "TXT", "name": "_dmarc.pubres.net", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.pubstjoseph.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.ritimo.org", "result": "records", "records": ["v=DMARC1;p=none;pct=100;rua=mailto:dmarc@globenet.org;aspf=r;adkim=r"]}
+{"type": "TXT", "name": "_dmarc.sagamicycle.com", "result": "records", "records": ["v=DMARC1; p=none;"]}
+{"type": "TXT", "name": "_dmarc.sainsmart.com", "result": "records", "records": ["v=DMARC1; p=reject; sp=none; rua=mailto:dmarc@sainsmart.com; pct=100; adkim=r; aspf=r"]}
+{"type": "TXT", "name": "_dmarc.scopevalues.world", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@scopevalues.world; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.seenresort.garden", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@seenresort.garden; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.sise.org.cn", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.skincareds.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.sleeppassport.com", "result": "records", "records": ["v=DMARC1; p=none"]}
+{"type": "TXT", "name": "_dmarc.solutionstructures.skin", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.southashlandflorist.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.theumbrellaproject.asia", "result": "records", "records": ["v=DMARC1; p=none"]}
+{"type": "TXT", "name": "_dmarc.toloka.to", "result": "records", "records": ["v=DMARC1; p=none"]}
+{"type": "TXT", "name": "_dmarc.tranecareers.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.ultimatrrewards.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.undeni.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.waleczghost.com", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.wearelog.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.whatevervital.homes", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@whatevervital.homes; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.widerchart.world", "result": "records", "records": ["v=DMARC1; p=none; rua=mailto:abuse@widerchart.world; pct=10;"]}
+{"type": "TXT", "name": "_dmarc.wightfamily.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.xrfamily.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "_dmarc.zizka.ai", "result": "records", "records": ["v=DMARC1; p=reject; rua=mailto:postmaster@zizka.ai, mailto:dmarc@zizka.ai; pct=100; adkim=s; aspf=s"]}
+{"type": "TXT", "name": "auth._domainkey.discountbinstore.com", "result": "no_records"}
+{"type": "TXT", "name": "auth._domainkey.popshopeu.com", "result": "no_records"}
+{"type": "TXT", "name": "bulk2._domainkey.bbboking.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "bulk5._domainkey.damncheapguns.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "campaign2._domainkey.bitupdex.com", "result": "no_records"}
+{"type": "TXT", "name": "campaign2._domainkey.luninesscosmetics.com", "result": "no_records"}
+{"type": "TXT", "name": "campaign2._domainkey.octobercategories.living", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlUNdzs6tCiS2EVzEcnThgYTIl8Em9vVp+WrsFrGg5yg/1YaquKqeQey1SbqUXsLLyDeZuBevJEUWwc4HPK663kGq7VyDoMxzq3pyT/1LbFiC9xTG63r3ynpP+xvL71EN+1EnUzPS0qYk4lSR6E9FkYNXXCw1GYEPz1Ba0uRoz4gaAgbwVnmyQgEcJm9VgzgPSn3g9ZuE3pPnZUB8YXE5IZX1FKAD6HAvbnSjKA3+NFSPnhPqJui0SH0+/SbVxfhDeUlQcCw2Mnbf+1OxTFojGNwzK8lxQ7e3uZ8NHAz/C3c2mD+71qTi3aq0i4B6PGcW/P5ffLMZnPLq23Qpca1s5wIDAQAB"]}
+{"type": "TXT", "name": "default._domainkey.kassapos.in", "result": "records", "records": ["v=DKIM1; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqanEoSD5zd8k/FNogUUKzSTaO/0PYVrX8NWiJuA9Bfke2LLXPqKTP9brnP0atyplUVuhQSOB5uCHXrnW6UdBxojxXfnPT70SMczx18kkLWZgsL9xaIrTGZUBA3AvivXc21fh4D7c6ofkK7ANw1psKrwSZrBVzYQriqOeL03f6RXRxPuYUD1vJLAq23cfaCp5bQ2HJPqXTDyM/M+4ROwWxPp231xHadDGq9e7CRV1/O25cMGx4d8EOLx/JcIE4Xr10KjbTS4wy6ZNgx9MO6BvD/V4NmjiEI3PI0W/ktZv7J/8A9BBljCNFxOLD2ZnWeDm0UWhs9xhCKRlz8bpjM7ZFwIDAQAB;"]}
+{"type": "TXT", "name": "dkim._domainkey.agfirstmyloancare.com", "result": "no_records"}
+{"type": "TXT", "name": "dkim2._domainkey.cancelledpatients.skin", "result": "no_records"}
+{"type": "TXT", "name": "dkim3._domainkey.theqmscenter.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "dkim5._domainkey.gakharproductions.com", "result": "no_records"}
+{"type": "TXT", "name": "email._domainkey.manowines.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "esp1._domainkey.webmailspectrum.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "esp4._domainkey.sharpclaimed.property", "result": "no_records"}
+{"type": "TXT", "name": "foss._domainkey.arm.com", "result": "records", "records": ["v=DKIM1; k=rsa; s=email; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC/P3ZmSyyjbjlfVGOaiYWW/Ev+dLrVqVkB/FS/1kLjqSCr1GTvF/eUPJga0M6aY+DNKXbFObmw6q7QV1R+6rHWkLSN/zKalLGpOrW6BpCMCeKIC+rW0QljJNLk1sMun4TI4sVqh5HhDC2nvfejFQW1UBiYdSplQOaboAaS6XZ8TwIDAQAB"]}
+{"type": "TXT", "name": "gm1._domainkey.gtucker.io", "result": "records", "records": ["v=DKIM1; h=sha256; k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp8Mks4TXRqy7GjW3uIN2pfL+lnTNzEBYnYvoh9WbYseieVQIysX3tAPFz3oCoPlANa31gj/slInQViB6tVb59Sw2loR1MS7HGp8g/5LaNI7KIdojiTDalLJCi4VK4Kw6eOIE/dAM/qKe3KrvU2EvSfVeU/emXU/B483vgWLWbakyiMekQN6mc+JZkegcmefambtVxrYqLswQLM9EwQ4fQPI/x8H067cOZfOejPF3+a+uwbjOC8x5xVfAsNMjFmNDYoKaSjxcrX0fw54p/+5N1ciKdN7mCqsXrtb3ZRwn6TddzJR6ji0ID8fV4Y8/nUhLftsD4FRw54p7Hd3Ds1UseQIDAQAB"]}
+{"type": "TXT", "name": "k12822756c9df._domainkey.health-mart.living", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwkjz0nzSNb90/g+A3BRzldKHHIPLPZDWEG1udBLjSmieNRJBogCHMGC5E5KkEnTU9w3VUXUg2EHma6BSwzEuHkvdau5TxLcVrmBLdIUYDs23vYbMnswBB/S6MqruFGcClZIckiKXPvA9yoI8Eng+gWVtW4E7efU2OZyAHGZp9MZshmQjG0yxsb9f3AUX5cFo4uIZ5NAxHG0TONMyskCC9wsE/9ka0iqSrFaNHp+JIvZW4uwqfcjCT12qig18WSdAF0BjD8wyhxjXUT3GWrhN29i1zJAHIH0bG7n76K5d6yBCAKUrs+BsTCoDlFVH1j8ra/adP/VV4bEWSGD476h0tQIDAQAB"]}
+{"type": "TXT", "name": "k2._domainkey.lotoquebecs.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "k3._domainkey.cestudent.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "k5._domainkey.brokenim.skin", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApoL6Qs+KwfSa4pbnUwOPN0RMPQSfxySog3I9PjudfmvggfUSfGSUQsHBWwrykxNglk2dFfcIUUxLutw0qZzZieEjK4n7fxV1ZKuxo/y4cq9wlY/za+P3SpAfk7v2XrM+bBG5hRzBXtEOaUtibjjNvEkT4vXe92orc/BtaUDCvBklRKdHLRersjAksjiWEyoHL1Tm36p0G9WfwfKSWv0Z7DWWtKxq1fKtm246sP4QI+P6HcBNyA1oZpxPgGrPAVxo15osbOQKf97DnP75mjr2xDiV+9KGtWDj53rN5ITw4+/x/IflarZpXpwMI673j+5ZS7pjUNWmIeRLQsYJIPkttQIDAQAB"]}
+{"type": "TXT", "name": "k563277061f85._domainkey.wellmart.living", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqAHBMq6TkyTx/a81Bq12oz682qsgcQTpesv8SXHORUr/xh5bypA3vZ8jHatJ2wQo1XZns6F6OK6AScTszItHHvkkvBvvEcGtKvCRvLNctXjCpeVhKMNaBR36W23l+aQwmE4FmbT7skEfbOJcopxH9SAjwtFiNZjbnUkzdf3drO6OgZBoCExxKKCPtdVi91E/b21j/FGQTlACR5s/WTQSc7TLDy/RalraBKTGNcvIfK2tmA3KNyZ/DFnhSB01XGYuQ7pyqAb5KILUvUGDpdJhAis6n5rrqxZbsruNqk7WBKLqL1QtCKbKj3Wt2rha5VMhFeKNX/WSVOHhSD6ja3FTuQIDAQAB"]}
+{"type": "TXT", "name": "k7893897484e0._domainkey.365healthcart.living", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7DK4UPV7drhhEATMkdOio4BKlwaYiDdax8Akw8SoEH9W539uXod7OdLvogiPdPp+j741S225CiWSBtHdgV/xL72bwWNSp6Yo+PEG8TfxLj0kQgpuKJo2LfFnylEi5nCwLHQ6iXkquY/FTANBzBZzIc16GLVUFsq57Ofm28KFW+w+6YsZDFoOkC3AFQWpdsjwb/qONkTGKxkMLMabSJwkkYbdMTEPSSAWqicZk9+lgATjrjF2H/b7OyyFbmVNlXnyU3xTVxYvvq4/vdCGFglhOfbkBIgNlYYenRGFBLkKpTekIAOH2gu4un+FbEiJrwOzJ7BzswkMW3DpKR3nMeopyQIDAQAB"]}
+{"type": "TXT", "name": "mail._domainkey.hallyn.com", "result": "records", "records": ["v=DKIM1; h=sha256; k=rsa; t=y;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3NiaxlviSnBl9TMOEYWcJXrBuQCQwKi3OacFPOOtYfFH9mowllrhJHKWaOsygQwzuTuuh1YKHgg4lek8S/1VVephi7L0vWeNVFoYBKWKl1j5UEjb4seGsh6efo/j19RY93hbujjG/t2JabHVDKRRuCJRjCo+RSJpKkGXxVi322LeJq25uf+L3Z49HIK0bPM5MgB5XzkeJ5Tow+KmwHQAdyTedNnNnXsCJbPEYwAFHIviwg+e1FGJx05ZFEHbcrKtSiAsk0ZkNzl979fh0friiCMVI2gxyhX4+LFjmiy0PIpPjzArcwn1gc63vfOhiKmNTBIOKGDyasR6xQFRiavKbwIDAQAB"]}
+{"type": "TXT", "name": "mail._domainkey.honghuink.com", "result": "no_records"}
+{"type": "TXT", "name": "mail4._domainkey.mail.ru", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA270/lATLvx6TwXJJk5Pc7tDLXYPOAvEnyo12YS7kMbHhrYSRRYgMHseOrgWNFJQtGMxLx9JKWVBml4XCAQl1G8xlTcGHy2fF3PJXYQW1Y+7iIjHXUXDLvU2B82TZN24P6BPLo1RPRrjOj+TwmOQ8viFpCOl+GePM1mCtnu0Y961q8yQPcj4O/pDQd8MytzuJGgF4VLM7y9Ultyk3RRBO32qcm0vS6aOwg5XbSDtvzsGzClwtykTZ03aqmMXHzh82PZGcZdW/dlz4eOwSoWdqxDRs+bUzIeoDLt9axx9mN+p2akmjS+voBcXhx3GF104+fdBtn6DzRKJeNbb0rGyKEwIDAQAB"]}
+{"type": "TXT", "name": "mail4._domainkey.partilla.com", "result": "no_records"}
+{"type": "TXT", "name": "main._domainkey.symantrec.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "mimecast20190719._domainkey.redhat.com", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCNbWTHnERQVrWhjLHC9g90d/+h6Hw2u2SzHH9PNpm1N5rWxXgkB3o7xDxTMXqHR2wdUfemzUQ5XBHbVpWO4jOZQeizPFzSi74jPcKjs0m3PMUqbSrAYYhNLqDW17M1KntNMs3TvF6+otjt4qFhgKM24J1lfgRBxmN9Zn+wvuiCzwIDAQAB"]}
+{"type": "TXT", "name": "mta2._domainkey.arunaimpex.com", "result": "no_records"}
+{"type": "TXT", "name": "mta2._domainkey.lanorys.com", "result": "no_records"}
+{"type": "TXT", "name": "mta4._domainkey.anovacullinary.com", "result": "no_records"}
+{"type": "TXT", "name": "mx1._domainkey.anistroy.com", "result": "no_records"}
+{"type": "TXT", "name": "mx2._domainkey.hillarycats.living", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm+liQwkFB4Lmidf2uqJBTuv3Vmkm/xEtnpgJHTthmMNc1cRj0ahIRq0dOnFUdKKUAWnkelTt/oT59r5HrDKNBglI2T5V1wFCzG4b1xBweTeNOk6sbf8BV3LpTp20PttwnryVMZiSgVspZadYd40tMsoyTSlhDOVhK3Psxl63fxepoBHAApsbKNGhRnTFxV3ox/ToTLXhXjzoxKmuSpxbJDCEJ4kYIH8eX3FtMEiwuH670SfQO4nzy4LRQlmNuR8pDU46iOQzxbp+jqsNuUoRmNTdCGcfIoMmZWcDQe4yrrCVJKiW63W6InYo65PVDv5HmPn84NcdJzklFwnm1kIxCwIDAQAB"]}
+{"type": "TXT", "name": "mx5._domainkey.readersmode.lat", "result": "no_records"}
+{"type": "TXT", "name": "news2._domainkey.topvikingspin.com", "result": "no_records"}
+{"type": "TXT", "name": "newsletter1._domainkey.pubstjoseph.com", "result": "no_records"}
+{"type": "TXT", "name": "newsletter2._domainkey.westendmanor.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "newsletter3._domainkey.topopulentwin.com", "result": "no_records"}
+{"type": "TXT", "name": "node._domainkey.cdcmotorcycles.com", "result": "no_records"}
+{"type": "TXT", "name": "node._domainkey.shrimahaveercollege.com", "result": "no_records"}
+{"type": "TXT", "name": "origin._domainkey.playdanmark.com", "result": "no_records"}
+{"type": "TXT", "name": "outbound._domainkey.becomingmainly.homes", "result": "no_records"}
+{"type": "TXT", "name": "pm20250806._domainkey.pm.mtasv.net", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt4BfAw/T6C1YpaaBWfp6bLRHNuF0F7keo8WfMz98wxcAISzvCfB/qZSZiT4umP0jgGSJX1VRhvKP3X1jA0jGFhQX4CzIp459l4Dg2MjeB57Sy/Od+ZulfVfJSPBDvoiH2qP68OjIhZQ6dWsgQzUsia6IfYckEwcRm8gViBRlmAPhpd0FWnqzhTOVKWH53w0nHFpQKar2D23Uh4+NLjHxSgExn4MWXJIHqWXUopC10XYeUo2wFCoDmTLHayawJAT3Bo93D4MOyurX9g5xFVyDe8+gU87sKuflNzsebnoTs1J1Cq4CHgcsBGKlW44B7p/S7biaJRioSB1yXpfOUDZolQIDAQAB"]}
+{"type": "TXT", "name": "pps82601-s2048-2026-q3._domainkey.meta.com", "result": "records", "records": ["v=DKIM1; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnjjO3D/qjvHhj0SmQGNTslxLwDIMlI0bBL23UD2eC3L70110+oLVis2mb4EuP6ntOV3rd1/K+O8sCvFLmKzJUQl0yn/xYoWxH6Yr3YcYvuvyn8Fk6bp12/APn9vidZhCpQkRKz4xYoNKC3YS7P0PFqroqmKgI24GXxVOxTSOeeAO2wDFf8N5OY/ausm2tLldl4VdXsuIPwhJZHrc06Nf7IWWwws3kXriF2P77u3hlDhqWsK5HfUADtXGId1kvgOibEQt2QeRI9G2x7VmtfHXUaCdYCXY4/R8GXn0Eh9EPa+uHzQ8tzq/7Bx5gVwZvT0t/YlT4j03iOzrcXma4nCVcQIDAQAB"]}
+{"type": "TXT", "name": "primary._domainkey.green-valeq.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "prod1._domainkey.premirefoodsafety.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "relay._domainkey.virtuozzo.com", "result": "records", "records": ["v=DKIM1; s=email; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyfkdpLWdKntcdj6frizmASvUGZXJqG5ax5OBJ1yWUKkN4W8tHdRTgcNSfu01U9MdmgTarcRXjdSNDYuAExFucHzUw2RsIpV2t1kx7/EHUCjgS6JSWg7jSiL+tD66ozrLtG8WS8R206pXS0Qg+Zx4GHprrRiUCuORMNTQP93baBdmai51jMxxyjlr/wyc25Po2EiV4vOR92AHp8+EllV/z6bxPLk2VWQJR5gPC1vdF7r1LWj76qOVMjDpateZGaQ3xLci0aR0VXfoyWunGkEd3gdZ/AI9gGmmLJxaB4aaoXju/j/ZYStffTpRaDDdu0jNb3nm4Ev3rIg0A8vOMT2HSQIDAQAB"]}
+{"type": "TXT", "name": "relay3._domainkey.burgmanbrothers.com", "result": "no_records"}
+{"type": "TXT", "name": "route1._domainkey.atozpictures.com", "result": "no_records"}
+{"type": "TXT", "name": "route1._domainkey.enconpasshealth.com", "result": "no_records"}
+{"type": "TXT", "name": "route2._domainkey.systemsengland.skin", "result": "no_records"}
+{"type": "TXT", "name": "route3._domainkey.synemobile.com", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzGZijHLShvijiJLvJQKQT6b5izfJYHqjRDLvvqYERCL2a/zG6IytFaKql7Yi1LGOCLGlTwBdjvm6tc0A7dyeJj0wJGZ3z/CAsaPe21ahw/fPR1VZqOZax0r91VT+r0u7kOkSbLEEi1H+53kt9L03htn5yiqhjeAnHCPT7odFAV5biliZWAtjmxC/4DDYMeXsjwgYXlVojxO5Q1tO1dA6ZZFcfdl+DYPX8XPzOJiXhCaaRQin95IUjnuwiiGfUjjNdwlVjRwvtxkbPDcJUm9TXyAMDY5xfyLIKUmy626aMQzxuOMpagju0WDziYxG5NaWsPnBinXWXrTaGRvX4T/c3QIDAQAB"]}
+{"type": "TXT", "name": "route4._domainkey.luckytravelguide.com", "result": "no_records"}
+{"type": "TXT", "name": "route4._domainkey.sjovzone.com", "result": "no_records"}
+{"type": "TXT", "name": "rsa2._domainkey.wightfamily.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "rsa4._domainkey.napoleonink.com", "result": "no_records"}
+{"type": "TXT", "name": "rsa5._domainkey.remanance.net", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7cZpWUZR+xH1C8FwX/eFWqxu6Dm5AFr1WXoiU7TIOT1lBl73QEIyrbmKhY5eyTf7Z6jEPWoWePAAK91P3LJ/boA6vuxjFnxp3adU7L5BPNNCevJP53mpslvgTYN3Uwi3f50CfU4NC1RGby90ROM7Z1/habAZWobZnKf6lh6tiATQB4EPjViMHfODTkmRHXwQfW5NqiaEB7iwSfanbaZoahqOk/5XfaKWi8NvmM+6M3BJ6DsuNGaQPa1/xiU3qN2VjVAyYDvtO5Vp2PT8YXVhMp+IlO7Mv0VDkDBveqO+KPGyFPEJD99PW/rAwJrdyBIa86oeNSoJvLc8xrFj65ANHwIDAQAB"]}
+{"type": "TXT", "name": "s1._domainkey.moriahelizebethmerch.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "s3._domainkey.blueconnetnc.com", "result": "no_records"}
+{"type": "TXT", "name": "secondary._domainkey.ddafont.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "secondary._domainkey.stanthedonutman.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "selector2._domainkey.igcreatorcourse.com", "result": "no_records"}
+{"type": "TXT", "name": "send._domainkey.mimlearnovate.com", "result": "no_records"}
+{"type": "TXT", "name": "send3._domainkey.especiallydriver.lat", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2mnGCfPrqN5sgXYsNGEhufeaVxZa0JGtK8ueL9XcK4VT20yADFxu891NTvLhqnNWss+9ODWJW6FH+WQap/rDSg2DO6ngqo3UJLtpAJRn+Jd+Aq+6HIdUENuLcbSig9Z6hcip5WSIfM+Z4lpPG3ecLEZX/xhASQ4cS1Jyi8ZbTZ/s2RZUwiCRsa0Ms4gFFR/zO0b6HeyiGP74U/7W1ZlEiZ++OMke07B2Cl/VyaygOQoDojpeGGsjx732xlykAzWwSlzi83veoIql8qgmkabHDdwRckmcPr9/UsXt+HzWrmoxjAd+gaeL5nxLrWe1OaUDm4t5mlZypaLvSpjtApBKuQIDAQAB"]}
+{"type": "TXT", "name": "send4._domainkey.estateknow.world", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvCSBLViQkKaSULov60/BQZASFrrV6FfZg0nxo2Noec4HYZogpTBldKObzo/ftt9SzcOJwGupvshYT6GFU15Z/UIdmAoL4D+Wo3zp5GnpD7rDNSAV8BTQxErnBe2k5WCLROD93je7d3eP0rwt5dOQo9t3pcYEr1SGQdr+GvlBJL750DTDNXYVvTfn0fik1vveE7XqmzWt1ajiUovq51jWkKMjJrtPn+wjLvYo55MQoyhX9IrQnaxo0+oRxxH4fA7Jc7RbKp+rcC7bweSbHNb7TLiuNUXA7uFapVOpwHyXC2gCU2+hBXKLg5L0yMEow9QI9IXSSr/F/UFfflQWPhw80QIDAQAB"]}
+{"type": "TXT", "name": "sender2._domainkey.rickmuzik.com", "result": "no_records"}
+{"type": "TXT", "name": "sender4._domainkey.telindowifian.com", "result": "no_records"}
+{"type": "TXT", "name": "signing._domainkey.carminesitaliandeli.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "signing._domainkey.cdinstagram.com", "result": "no_records"}
+{"type": "TXT", "name": "smtp4._domainkey.perferredmutual.com", "result": "records", "records": ["v=spf1 -all"]}
+{"type": "TXT", "name": "smtp5._domainkey.godsconservation.skin", "result": "no_records"}
+{"type": "TXT", "name": "smtpauto.stravinsky._domainkey.debian.org", "result": "records", "records": ["v=DKIM1; k=rsa; s=email; h=sha256; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwi8LqBb0lIBri5MJwFq8lak6adGPCq/kpLTarDdSdlfOekhpAnwVf9cD37ii9u4bLfVkuIzg3eIm4HmHKoUCvqc24CZkggi5+D8TyhS0TnlXAZNQgFGtE9X6ZZTban34a/iqVU1PNjxXPLIEW+e5D3NJn1ah+3ILFDw7vXIXjZSierXl5onMY/lgN3DidLYBmw0+BNVKI4mnByczmhh65kF+DLsv8N0Jtb5YOcRle3SuuK6dp1N4dyosd0CHnjuytpZ81F97FBfMKpmHYJEceA+/1Rxykhl7x+khw2V5UKK7o30af7QJgMS+ZO/XJSl6Sw1yerxixvX9kAnjZpptRwIDAQAB"]}
+{"type": "TXT", "name": "transactional._domainkey.truecrime24.net", "result": "records", "records": ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhyIms6gaI/NBtFt9y3/ZUKnggU2L48dsbqqHAVdI72uyKktx2EJrEPgLx1YN3OObPVprWZdPOa0Plt5I8EnCvbWiDzDmu2vjc/3AlfuWYms1vlxZQt43EtDTc393I9AoT9KMULb3OBXzGiPVgH3www3oaNFSxPoLkVJRzeIHiiIYQ9GE+MFdoIiiRdvsjnyVjoMhEBM6gCvPI3OA5C8v9Sd1K0CBrlFKZdYEFhhkfQgbjH8H4GgDpMWzUgrGqcmeQjkUeybzWaf/OaZItGR+R2O0FWZeVm+p3Oie3bcXhyqcz3TCjtoMfpGtJDlC/rQXojM1AzamJ+YOr4uZ1wzrhwIDAQAB"]}
+{"type": "TXT", "name": "transport._domainkey.valueregard.skin", "result": "no_records"}
+{"type": "TXT", "name": "_dmarc.cxeth.com", "result": "no_records"}
