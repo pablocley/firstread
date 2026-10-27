@@ -10,16 +10,17 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, f"{REPO}/ml/sidecar")
 from providers import Cache, resolve, space_id
 
-FAKE_JEV = """class JevStyleDecision:
-    def __init__(self, d, device, dtype): pass
+FAKE_JEV = """import math
+class JevStyleDecision:
+    def __init__(self, d, device, dtype, verify=False): pass
     def decide_many(self, state, qs):
-        assert "email" in state
+        assert isinstance(state, str)
         out = []
         for q in qs:
             if q["t"] == "noul": p = {"true": 0.9, "false": 0.1}
             elif q["t"] == "choice": p = {k: (0.7 if i == 1 else 0.3 / (len(q["crit"]) - 1)) for i, k in enumerate(q["crit"])}
             else: p = {str(i): (1.0 if i == 4 else 0.0) for i in range(len(q["crit"]))}
-            out.append({"probabilities": p})
+            out.append({"probabilities": p, "scores": {k: math.log(max(v, 1e-9)) for k, v in p.items()}})
         return out
 """
 

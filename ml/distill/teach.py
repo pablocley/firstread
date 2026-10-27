@@ -7,7 +7,7 @@ A decision model behind the sidecar protocol (ml/sidecar/decision_server.py) ans
 question catalogue (crates/firstread-stamp/data/questions.json) for lab messages, reading the same
 rendered text the daemon sends to providers (<lab_data>/rendered/<split>.<render>.jsonl). Answers go
 to <lab_data>/teacher/<release>/<split>.jsonl, one line per message: {"id", "text_sha256", "p": {question:
-[probabilities in outcome order]}}. A run that stops resumes where it stopped. --every N takes every
+[probabilities in outcome order]}, "ms": wall time of the call}. A run that stops resumes where it stopped. --every N takes every
 N-th message (the teacher costs seconds per message on a CPU).
 
 Then the teacher is checked where the lab has human labels (ml/heads/train.py LABELS), as the design
@@ -25,6 +25,7 @@ import re
 import socket
 import struct
 import sys
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -83,11 +84,13 @@ def main():
             for i, r in enumerate(rows):
                 if r["id"] in done:
                     continue
+                t0 = time.perf_counter()
                 res = call({"op": "logits", "text": r["text"], "questions": [s["id"] for s in specs], "specs": specs})
                 if "logits" not in res:
                     sys.exit(f"{r['id']}: {res}")
                 p = {s["id"]: [round(x, 6) for x in softmax(z)] for s, z in zip(specs, res["logits"])}
-                f.write(json.dumps({"id": r["id"], "text_sha256": r["text_sha256"], "p": p}) + "\n")
+                ms = round((time.perf_counter() - t0) * 1000)
+                f.write(json.dumps({"id": r["id"], "text_sha256": r["text_sha256"], "ms": ms, "p": p}) + "\n")
                 f.flush()
                 print(f"{split} {i + 1}/{len(rows)}", file=sys.stderr, flush=True)
     agreement(out_dir)

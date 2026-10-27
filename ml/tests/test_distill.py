@@ -12,10 +12,11 @@ sys.path.insert(0, f"{REPO}/ml/sidecar")
 from providers import Cache, resolve, space_id
 
 TEACHER = '''
+import math
 class JevStyleDecision:
-    def __init__(self, d, device, dtype): pass
+    def __init__(self, d, device, dtype, verify=False): pass
     def decide_many(self, state, qs):
-        t = state["email"]
+        t = state
         out = []
         for q in qs:
             if q["t"] == "noul":
@@ -26,7 +27,7 @@ class JevStyleDecision:
                 p = {k: (0.8 if v == pick else 0.2 / (len(q["crit"]) - 1)) for k, v in q["crit"].items()}
             else:
                 p = {str(i): 1.0 / len(q["crit"]) for i in range(len(q["crit"]))}
-            out.append({"probabilities": p})
+            out.append({"probabilities": p, "scores": {k: math.log(max(v, 1e-9)) for k, v in p.items()}})
         return out
 '''
 
