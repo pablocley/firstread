@@ -44,7 +44,7 @@ def set_before(name):
 
 
 def clear(user):
-    for mb in ["INBOX", "Junk", "Later", "Acme", "Trash", "Sent"]:
+    for mb in ["INBOX", "Junk", "Later", "Acme", "Trash", "Sent", "Archief"]:
         sh(D + ["expunge", "-u", user, "mailbox", mb, "all"])
 
 
@@ -160,7 +160,7 @@ def append_sent(user, path):
 
 
 def where(user, msgid):
-    for mb in ["INBOX", "Junk", "Trash", "Sent"]:
+    for mb in ["INBOX", "Junk", "Trash", "Sent", "Archief"]:
         r = sh(D + ["search", "-u", user, "mailbox", mb, "header", "Message-ID", msgid])
         if r.stdout.strip():
             return mb
@@ -201,9 +201,15 @@ def hook_d_cases():
         rec = [json.loads(l) for l in open("/srv/l2/records.jsonl")]
         last = rec[-1]["features"]
         print(f"  contact1, the reply: {where('dora', 'reply1@partner.example')}; "
-              f"wrote_to_sender={last['mailbox.wrote_to_sender']:.0f} known_thread={last['mailbox.known_thread']:.0f} "
-              f"first_contact={last['mailbox.first_contact']:.0f}")
-        print(f"  label events learned: {label_events()} (the two moves by the owner; firstread's own filing into Junk at delivery is not an IMAP action)")
+              f"wrote_to_sender_unverified={last['mailbox.wrote_to_sender_unverified']:.0f} "
+              f"reply_to_sent={last['mailbox.reply_to_sent']:.0f} first_contact={last['mailbox.first_contact']:.0f} "
+              "(no DKIM in the fixtures, so the unverified record)")
+        deliver("dora", "letter1")
+        print(f"  letter1 from nieuwsbrief@krant.example: {where('dora', 'letter1@krant.example')}")
+        print(f"  owner: {move('dora', 'INBOX', 'Archief', 'letter1@krant.example')} (filing it away)")
+        deliver("dora", "letter2")
+        print(f"  letter2, same sender, would be junk on its content: {where('dora', 'letter2@krant.example')}")
+        print(f"  label events learned: {label_events()} (the owner's two Junk moves and the filing; firstread's own filing into Junk at delivery is not an IMAP action)")
         print(f"  snapshots in the records: {[r['provenance'].get('snapshot') for r in rec if r['input']['recipient'].startswith('dora')]}")
     finally:
         p.terminate()
