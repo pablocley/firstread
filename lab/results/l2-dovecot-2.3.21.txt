@@ -2,26 +2,26 @@
 ## A normal: ham with forged X-Firstread-Folder: junk and Keywords: $IsTrusted
   delivery: accepted (0.1s)
   stored in INBOX; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_f7e7056907a12a0a; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_083d74d3d7d8e41a; tiers=0; models=none;
 
 ## B normal: spam with forged Folder: inbox and an obsolete-spelling Keywords header
   delivery: accepted (0.1s)
   stored in Junk; flags [\Recent $Junk]
-    X-Firstread: v=1; d=lab-l2; id=st_1b87a00ec992900b; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_34ebe9ab0bf1264d; tiers=0; models=none;
     X-Firstread-Folder: junk
     X-Firstread-Keywords: $Junk
 
 ## C user rule files it: spam whose subject matches the user's own rule
   delivery: accepted (0.1s)
   stored in Acme; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_6dbda21058d3a051; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_977c00c3169110f9; tiers=0; models=none;
     X-Firstread-Folder: junk
     X-Firstread-Keywords: $Junk
 
 ## D user rule files it: ham whose subject matches the user's own rule
   delivery: accepted (0.1s)
   stored in Acme; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_6734b41aad6babf7; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_6ce28e83c019265f; tiers=0; models=none;
 
 ## E daemon down: ham with forged Folder: junk
   delivery: accepted (0.1s)
@@ -38,3 +38,18 @@
 ## H daemon accepts but never answers: ham with forged Folder: junk
   delivery: accepted (2.1s)
   stored in INBOX; flags [\Recent]
+
+## M hook D: the owner's moves teach the next delivery (user dora)
+  news1 from nieuws@winkel.example, unknown sender: Junk
+  owner: MOVE Junk -> INBOX
+  news2, same sender after the rescue: INBOX
+  friend1 from pieter@vriend.example: INBOX
+  owner: COPY INBOX -> Junk (COPY, then expunge)
+  friend2, same sender after the owner junked one: Junk
+  other1 from promo@ander.example: Junk
+  owner: MOVE Junk -> Trash (deleting junk teaches nothing)
+  other2, same sender: Junk
+  owner: APPEND to Sent, a message to contact@partner.example
+  contact1, the reply: INBOX; wrote_to_sender=1 known_thread=1 first_contact=0
+  label events learned: 2 (the two moves by the owner; firstread's own filing into Junk at delivery is not an IMAP action)
+  snapshots in the records: ['mem/0', 'mem/2', 'mem/3', 'mem/5', 'mem/6', 'mem/7', 'mem/9']
