@@ -7,6 +7,15 @@ publish.workspace = true
 
 [dependencies]
 firstread-core.workspace = true
+firstread-net.workspace = true
+firstread-links.workspace = true
+sha2.workspace = true
+ring.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+firstread-parse.workspace = true
 
 [lints]
 workspace = true

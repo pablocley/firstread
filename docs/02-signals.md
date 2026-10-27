@@ -28,7 +28,7 @@ newsletters you never read, forwarded chains, and every flavour of scam.
 
 | signal | notes |
 |---|---|
-| SPF (MAIL FROM, HELO), DKIM per signature (v1, v2), DMARC with alignment and policy, ARC | ARC is on the historic track ([mail-auth README](https://github.com/stalwartlabs/mail-auth)) but still helps with known forwarders |
+| SPF (MAIL FROM, HELO), DKIM per signature (v1, v2), DMARC with alignment and policy, ARC | ARC is on the historic track ([mail-auth README](https://github.com/stalwartlabs/mail-auth)) but still helps with known forwarders. Built: DKIM v1 per signature and DMARC alignment and policy, judged at the delivery time over recorded or live DNS (`auth.own_*`, [ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)); without SPF a message without an aligned DKIM pass is "unaligned", never a DMARC fail. Not built: SPF, ARC, DKIM2 |
 | last-hop TLS, client IP, forward-confirmed rDNS, ASN, country | from our own MTA's Received line only |
 | Rspamd score, action, symbols | trusted only when added by our own MTA |
 | Received-chain sanity | hop count, impossible timestamps, private addresses in public hops |
@@ -64,13 +64,18 @@ newsletters you never read, forwarded chains, and every flavour of scam.
 
 ## Per mailbox
 
-Built in v0 ([ADR-0018](decisions/0018-mailbox-memory-v0.md), `firstread-graph`, inputs
-`mailbox.*`): sender relationship (seen, written to, first contact, judged junk or not by the
-owner, per address and per domain), known and unknown threads (a reply to nothing this mailbox
-received or sent), and an IBAN new or known for a sender domain. Only the IBAN facts wait for a
-verified identity; the others key on the From address, which falls short of the safety floor below
-until history that lowers P(junk) is read only for verified identities (ADR-0018). The rest of this
-table is not built.
+Built ([ADR-0018](decisions/0018-mailbox-memory-v0.md), format 2 in
+[ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md), `firstread-graph`, inputs
+`mailbox.*`): the owner's judgement of a sender and its domain (junked, rescued, filed away), kept
+apart for verified and unverified mail; whether the owner wrote to the sender or its domain; a
+reply to a message the owner sent, from one of its recipients; first contact; a reply to a thread
+the owner never took part in; unverified mail from an address that normally authenticates; and an
+IBAN new or known for a verified sender domain. Deliveries are counted but raise no fact, free-mail
+domains get no domain facts, and every fact may push P(junk) only one way
+(`crates/firstread-graph/data/fact-directions.txt`). A verified identity is an aligned DKIM pass
+(firstread's own check) or DMARC pass in a trusted `Authentication-Results`. Mail from senders who
+never authenticate can still be impersonated with their history; ADR-0019 says how far this goes.
+The rest of this table is not built.
 
 | signal | notes |
 |---|---|

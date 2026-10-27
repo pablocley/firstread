@@ -19,7 +19,7 @@ sed "s/^first_valid_uid = .*/first_valid_uid = $uid/" "$REPO/lab/l2/dovecot.conf
 cp "$REPO"/lab/l2/sieve/before.sieve "$REPO"/lab/l2/sieve/before-decline.sieve \
    "$REPO"/lab/l2/sieve/before-slow.sieve "$REPO"/lab/l2/sieve/after.sieve \
    "$REPO"/lab/l2/sieve/report-junk.sieve "$REPO"/lab/l2/sieve/report-not-junk.sieve \
-   "$REPO"/lab/l2/sieve/report-sent.sieve "$L2/sieve/"
+   "$REPO"/lab/l2/sieve/report-sent.sieve "$REPO"/lab/l2/sieve/report-filed.sieve "$L2/sieve/"
 cp "$REPO"/lab/l2/bin/* "$L2/bin/" && chmod 755 "$L2"/bin/*
 cp "$REPO"/lab/l2/pipe-bin/* "$L2/pipe-bin/" && chmod 755 "$L2"/pipe-bin/*
 cp "$REPO/target/release/firstread-filter" "$REPO/target/release/firstread" "$L2/bin-real/"

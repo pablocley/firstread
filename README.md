@@ -155,32 +155,38 @@ false-positive side rests on 49 dev and 25 sealed hard-ham messages.
 
 ## Mailbox memory (lab, 2026-10-27)
 
-Per mailbox, firstread remembers what was delivered and what the owner did: moved into Junk, out of
-Junk, or wrote to someone (Dovecot IMAPSieve, real Dovecot 2.3.21). Addresses, Message-IDs and IBANs
-are stored as keyed hashes only. Memory adds inputs to the combiner, fitted on top of the combiner
-without memory, so mail from a stranger is decided exactly as before (checked on the 385 dev
-messages without history).
+Per mailbox, firstread remembers what the owner did: moved mail into or out of Junk, filed it into
+a folder of their own, or wrote to someone (Dovecot IMAPSieve, real Dovecot 2.3.21). Deliveries
+alone teach nothing. History is kept apart for mail whose sender was verified (an aligned DKIM
+pass from firstread's own check over recorded DNS, or a trusted DMARC pass) and mail where it was
+not, after mox; unverified mail from an address that does authenticate gets none of its trust.
+Keyed hashes only. Memory is fitted on top of the combiner without it, and every fact may push
+P(junk) one way only, so mail from a stranger is decided exactly as before (526 of 526 dev
+messages without history: bit-identical).
 
-| owners (simulated, act on true labels) | Δ cost per 1,000 vs memory off (dev), CI95 | legitimate newly in Junk |
-|---|---|---|
-| active: 80 % of junk moved, 90 % rescued, 10 % replied | −8.3 [−14.5, −2.1] | 0 |
-| passive: 30 %, 50 %, no replies | −2.1 [−8.3, +3.1] | 0 |
-| never act | +4.1 [+1.0, +8.3] | 0 |
+| owners (simulated, act on true labels) | Δ cost per 1,000 vs memory off (dev), CI95: v0 | v1 | legitimate newly in Junk |
+|---|---|---|---|
+| active: 80 % of junk moved, 90 % rescued, 10 % replied | −8.3 [−14.5, −2.1] | −6.2 [−11.4, −2.1] | 0 |
+| passive: 30 %, 50 %, no replies | −2.1 [−8.3, +3.1] | −2.1 [−5.2, 0.0] | 0 |
+| never act | +4.1 [+1.0, +8.3] | 0.0 [0.0, 0.0] | 0 |
 
-Not kept: the rule asks for a gain under several owner profiles, and with owners who never act,
-delivery counts alone cost spam caught. Not safe to switch on either: history keys on the From
-address, so it must first be tied to verified identity. One mailbox never affects another
-(poisoning check: 0.0). [Measurement](docs/measurements/2026-10-27-mailbox-memory.md).
+v1 no longer costs anything when owners never act. Fitted freely, it had learned from 2002 mail
+without authentication that a new IBAN lowers P(junk) and let a forged invoice from a known vendor
+into the inbox (synthetic Dutch mailbox); with directions fixed in code that one goes to Junk.
+It catches less than v0 under active owners:
+v0's extra catches came from history of hotmail.com as a whole and from delivery counts, which
+anyone can raise. Off unless `--memory` is given. One mailbox never affects another (poisoning
+check: 0.0). [Measurement](docs/measurements/2026-10-27-auth-dns-memory-v1.md).
 
 ## Status
 
 | built and measured | designed, not built |
 |---|---|
-| parser, tier-0 facts, IBAN mod-97, link analysis, trusted `Authentication-Results` | SPF/DKIM/DMARC/ARC evaluation with recorded DNS |
+| parser, tier-0 facts, IBAN mod-97, link analysis, trusted `Authentication-Results`, own DKIM and DMARC alignment over recorded or live DNS | SPF (needs the client IP from our own MTA), ARC |
 | provider contract, calibration, combiner, stamp with HMAC, record | tier 2 (decoder model) and the async queue |
 | `firstread-filter` (fallback, deadline), `firstreadd` (sidecar, records, `--shadow`) | API (JMAP shapes), MCP server, safety block |
 | lab: L1 harness, L2 on Dovecot 2.3.21, three-axis loop, sealed split | learning per organisation / platform, commons |
-| mailbox memory (keyed hashes, event log), owner feedback via IMAPSieve (hook D), learning test | memory history read only for verified identities; hook C, digest |
+| mailbox memory split by verified identity (keyed hashes, event log), owner feedback via IMAPSieve (hook D), learning test | backfill from Sent, hook C, digest |
 
 ## Repository
 

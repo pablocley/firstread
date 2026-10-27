@@ -49,6 +49,9 @@ serde_json = "1"
 sha2 = "=0.11.1"
 hmac = "=0.13.0"
 psl = "=2.1.245"
+# DKIM signature verification only (RSA PKCS#1 v1.5 SHA-256, Ed25519).
+ring = "=0.17.14"
+base64 = "=0.22.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

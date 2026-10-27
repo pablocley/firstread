@@ -65,7 +65,7 @@ def start_daemon(d, combiner, threshold, sidecar_sock, calibration, memory=True)
             os.unlink(p)
     cmd = [os.path.join(H.BIN, "firstreadd"), "--socket", sock, "--records", records, "--deployment", "lab",
            "--mac-key", H.MAC_KEY, "--trusted-authserv", H.TRUSTED_AUTHSERV, "--junk-threshold", str(threshold),
-           "--data-class", "public", "--sidecar", sidecar_sock, "--calibration", calibration]
+           "--data-class", "public", "--sidecar", sidecar_sock, "--calibration", calibration] + H.dns_args()
     if combiner:
         cmd += ["--combiner", combiner]
     if memory:

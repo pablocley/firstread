@@ -27,6 +27,7 @@ What makes a rerun identical:
 | messages | `data/untroubled.txt` fixes the untroubled sample; `data/manifest.json` holds a hash over all 9,566 messages (origin, sha256 after normalisation); `prepare.py` refuses any difference and writes the per-message list to find it |
 | splits | `data/manifest.json`: per-split hash over ids, labels, slices and message hashes |
 | models | Hugging Face repo, revision and file list in `ml/sidecar/providers.py` |
+| DNS | `data/dns-recorded/`: every answer our own DKIM and DMARC checks ask for, recorded once (`harness/record_dns.py`, DNS-over-HTTPS) for the 2026 mail, with the window it stands for in `dns-recorded.meta.json`; replayed by the daemon, never resolved again |
 | ONNX | `export_onnx.py` checks fp32 against torch (max abs diff 1e-4); `data/onnx-e5-small.json` holds the hashes of our export |
 | packages | `requirements.txt` |
 | harness | `protected.sha256`, checked before every run |
@@ -56,7 +57,8 @@ HF_HUB_OFFLINE=1 python3 -I lab/harness/learning.py <run_dir>   # memory off vs 
 
 Mailboxes on a clock, owners acting through the real `firstread feedback`; `[combiner] memory` in
 `experiment.toml` picks how memory is fitted. Keep `<run_dir>` short (Unix socket paths). Results:
-[`results/memory-v0/`](results/memory-v0/), [measurement](../docs/measurements/2026-10-27-mailbox-memory.md).
+[`results/memory-v0/`](results/memory-v0/) ([measurement](../docs/measurements/2026-10-27-mailbox-memory.md)),
+[`results/memory-v1/`](results/memory-v1/) ([measurement](../docs/measurements/2026-10-27-auth-dns-memory-v1.md)).
 
 ## One iteration
 

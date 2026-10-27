@@ -43,6 +43,11 @@ At every level the harness controls three things production does not:
   [12](12-interfaces.md) section 3.3. A message without recorded lookups has its authentication
   and reputation signals marked `Unavailable` and is scored on a slice of its own. Live lookups
   during replay would make results unrepeatable, and keys and domains in old corpora have changed.
+  Built for DNS: `lab/harness/record_dns.py` records the answers our own DKIM and DMARC checks
+  ask for, once, over DNS-over-HTTPS, for real mail dated within 400 days of the recording
+  (`lab/data/dns-recorded/`, its window in `dns-recorded.meta.json`); the daemon replays
+  them (`--dns-recorded`, `--dns-window`, `--clock message`). SpamAssassin's 2002 mail and the
+  synthetic slice get no answers, even for a domain the recording holds.
 - **The mailboxes.** Corpus messages are assigned to simulated mailboxes so that mailbox-scope
   signals (first contact, vendor IBAN history, folder habits) mean something.
 
@@ -157,7 +162,9 @@ In the experiment file, and only there:
 - learner settings (decay, regularisation, k-thresholds within their allowed range);
 - the simulated users' behaviour profiles, only when the run tag says it is a robustness run.
 
-In the heads-training script: features, head architecture, training and calibration.
+In the heads-training script: features, head architecture, training and calibration. Memory
+weights stay within the direction of each fact (`crates/firstread-graph/data/fact-directions.txt`):
+the daemon refuses a combiner that breaks one, whatever the script does.
 
 Never: the harness, the scorer, the datasets and splits, the cost table, the providers' data rules,
 anything in `crates/`. A change that needs Rust (a new signal, a parser fix) goes into the run's
@@ -196,7 +203,11 @@ helpers, the L2 setup.
 Built on 2026-10-27: the learning test of section 7 for mailbox memory, with mailboxes on a
 simulated clock (Date order, owner delays), and hook D on Dovecot 2.3.21 (L2 case M).
 
-Not built yet: recorded lookups (section 2), a sealed counterpart of the learning test, L3 shadow
+Built on 2026-10-27, later: recorded DNS (section 2) for firstread's own DKIM and DMARC, memory
+format 2 and implicit labels from filing, measured in
+[measurements/2026-10-27-auth-dns-memory-v1.md](measurements/2026-10-27-auth-dns-memory-v1.md).
+
+Not built yet: recorded lookups beyond DNS (RDAP, DNSBL), a sealed counterpart of the learning test, L3 shadow
 beyond `firstreadd --shadow`, a separate Unix user for the sealed split and a champion comparison
 inside a sealed query (section 4). The only within-source labelled data is English from 2002 to
 2005.

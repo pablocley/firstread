@@ -93,6 +93,29 @@ MEMORY = "mailbox."
 # Facts that are 1 when the mailbox knows nothing about the sender or the thread. In residual mode
 # they are left out, so that mail from a stranger is decided exactly as without memory.
 ABSENCE = {"mailbox.first_contact", "mailbox.unknown_thread"}
+# Which way each mailbox fact may push P(junk). firstreadd refuses a combiner that breaks these,
+# so the bounds below are not a tuning choice.
+DIRECTIONS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "crates", "firstread-graph",
+                          "data", "fact-directions.txt")
+
+
+def directions():
+    out = {}
+    for line in open(DIRECTIONS):
+        line = line.strip()
+        if line and not line.startswith("#"):
+            name, d = line.split()
+            out[name] = d
+    return out
+
+
+def bound(name, dirs):
+    d = dirs.get(name)
+    if d == "raises":
+        return (0.0, None)
+    if d == "lowers":
+        return (None, 0.0)
+    sys.exit(f"{name}: no direction in {DIRECTIONS}")
 
 
 def fit_logistic(X, y, exp):
@@ -109,9 +132,10 @@ def fit_logistic(X, y, exp):
     return keep, w, b
 
 
-def fit_residual(M, y, offset, C):
+def fit_residual(M, y, offset, C, bounds):
     """Memory weights on top of a fixed base logit: no intercept and no centring, so a message whose
-    memory facts are all 0 keeps the base logit exactly. L2 penalty, scaled like sklearn's."""
+    memory facts are all 0 keeps the base logit exactly. L2 penalty, scaled like sklearn's. Each
+    weight stays within its fact's direction (`bounds`)."""
     from scipy.optimize import minimize
     sd = M.std(0)
     keep = sd > 1e-9
@@ -122,8 +146,11 @@ def fit_residual(M, y, offset, C):
         p = 1.0 / (1.0 + np.exp(-z))
         return C * np.sum(np.logaddexp(0.0, z) - y * z) + 0.5 * w @ w, C * Ms.T @ (p - y) + w
 
-    r = minimize(loss, np.zeros(Ms.shape[1]), jac=True, method="L-BFGS-B")
     w = np.zeros(M.shape[1])
+    if Ms.shape[1] == 0:
+        return w
+    b = [bd for bd, k in zip(bounds, keep) if k]
+    r = minimize(loss, np.zeros(Ms.shape[1]), jac=True, method="L-BFGS-B", bounds=b)
     w[keep] = r.x / sd[keep]
     return w
 
@@ -148,6 +175,11 @@ def combiner(run_dir, exp, lab, records_path):
         X = np.asarray([[r["features"].get(n, 0.0) for n in names] for r in recs], dtype=float)
         keep, w, b = fit_logistic(X, y, exp)
         weights = {n: float(v) for n, v in zip([n for n, k in zip(names, keep) if k], w)}
+        dirs = directions()
+        wrong = [f"{n} = {v:+.3f}" for n, v in weights.items() if n.startswith(MEMORY)
+                 and (bound(n, dirs)[0] is not None and v < 0 or bound(n, dirs)[1] is not None and v > 0)]
+        if wrong:
+            sys.exit("joint fit breaks fact directions (firstreadd would refuse it): " + ", ".join(wrong))
     elif mode == "residual":
         # The base is fitted without memory, exactly as a combiner without memory would be; memory
         # then only moves a decision where the mailbox knows the sender, its domain or the thread.
@@ -158,7 +190,9 @@ def combiner(run_dir, exp, lab, records_path):
         weights = {n: float(v) for n, v in zip([n for n, k in zip(base, keep) if k], w)}
         offset = b + X[:, keep] @ w
         M = np.asarray([[r["features"].get(n, 0.0) for n in mem] for r in recs], dtype=float)
-        for n, v in zip(mem, fit_residual(M, y, offset, float(exp["combiner"]["C"]))):
+        dirs = directions()
+        bounds = [bound(n, dirs) for n in mem]
+        for n, v in zip(mem, fit_residual(M, y, offset, float(exp["combiner"]["C"]), bounds)):
             if v != 0.0:
                 weights[n] = float(v)
     else:

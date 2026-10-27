@@ -1,14 +1,23 @@
 //! Message authentication.
 //!
-//! Implemented so far: reading `Authentication-Results` (RFC 8601) added inside our own trust
-//! boundary, identified by configured authserv-ids. Results from any other authserv-id are
-//! ignored, and a message without trusted results has every method `Unavailable`, never "fine".
+//! Built:
+//! - reading `Authentication-Results` (RFC 8601) added inside our own trust boundary, identified
+//!   by configured authserv-ids. Results from any other authserv-id are ignored, and a message
+//!   without trusted results has every method `Unavailable`, never "fine" ([`summarise`]);
+//! - our own DKIM verification ([`dkim`], RFC 6376 / 8301 / 8463) and DMARC alignment
+//!   ([`dmarc`], RFC 7489) over [`firstread_net::Dns`], judged at the delivery time, with every
+//!   lookup kept for the record ([`verify`]). An aligned DKIM pass is a verified sender domain.
 //!
-//! Still to build (docs/02-signals.md): SPF, DKIM (v1 and v2), DMARC and ARC evaluation with
-//! recorded DNS answers (`mail-auth`, Stalwart Labs), removal of foreign results claiming our
-//! authserv-id, and our own `Authentication-Results` header.
+//! Still to build (docs/02-signals.md): SPF (needs the client IP from our own border MTA's
+//! `Received` line), ARC, removal of foreign results claiming our authserv-id, and our own
+//! `Authentication-Results` header.
 //!
 //! Identity is decided here, deterministically. No model output may override it.
+
+pub mod dkim;
+pub mod dmarc;
+
+use firstread_net::{Answer, Dns, Logged, Lookup, RecordType};
 
 /// One method's result, as RFC 8601 names them, plus `Unavailable` for "not checked by us".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,6 +134,69 @@ pub fn summarise(values: &[String], trusted_ids: &[String]) -> AuthSummary {
         }
     }
     s
+}
+
+/// Our own verification of one message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Verification {
+    /// Every DKIM-Signature, top first.
+    pub dkim: Vec<dkim::Signature>,
+    /// DMARC alignment and policy.
+    pub dmarc: dmarc::Dmarc,
+    /// The DNS lookups made, for the record.
+    pub lookups: Vec<Lookup>,
+}
+
+impl Verification {
+    /// The sender domain is verified: a DKIM signature over the whole body, aligned with the
+    /// single From address, passed.
+    pub fn identity_verified(&self) -> bool {
+        self.dmarc.outcome == dmarc::Outcome::Pass && self.dmarc.aligned_domain.is_some()
+    }
+
+    /// The DKIM result as one word: `pass` if any signature passed, `none` without signatures,
+    /// else the first signature's result.
+    pub fn dkim_summary(&self) -> &'static str {
+        if self.dkim.iter().any(|s| s.status == dkim::Status::Pass) {
+            "pass"
+        } else {
+            self.dkim.first().map_or("none", |s| s.status.as_str())
+        }
+    }
+}
+
+/// Verify a message ourselves: DKIM at time `at` (Unix seconds), then DMARC alignment with
+/// `from_address` (the From address parsing found). Never touches the network except through
+/// `dns`.
+pub fn verify(raw: &[u8], from_address: Option<&str>, at: u64, dns: &dyn Dns) -> Verification {
+    let outside = OutsideRecording;
+    let dns: &dyn Dns = if dns.stands_for(at) { dns } else { &outside };
+    let logged = Logged::new(dns);
+    let sigs = dkim::verify(raw, at, &logged);
+    let msg = dkim::crlf(raw);
+    let (fields, _) = dkim::split(&msg);
+    let from_values: Vec<String> = fields
+        .iter()
+        .filter(|f| f.name.eq_ignore_ascii_case(b"From"))
+        .map(|f| String::from_utf8_lossy(f.value).into_owned())
+        .collect();
+    let dm = dmarc::evaluate(&from_values, from_address, &sigs, &logged);
+    Verification {
+        dkim: sigs,
+        dmarc: dm,
+        lookups: logged.into_lookups(),
+    }
+}
+
+/// The resolver for a message judged at a time its real resolver does not stand for: no answers.
+struct OutsideRecording;
+
+impl Dns for OutsideRecording {
+    fn lookup(&self, _rtype: RecordType, _name: &str) -> Answer {
+        Answer::TempError {
+            reason: "outside the recording".into(),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,19 @@
+DKIM-Signature: v=1; a=ed25519-sha256; c=relaxed/relaxed;
+ d=signer.example; i=@signer.example; q=dns/txt; s=ed; t=1793086975;
+ h=from : to : subject : date : message-id : mime-version :
+ content-type; bh=uBqHbD+w6h530iKrVdsUcNLHUskIlQGPXUPwO/3SwHs=;
+ b=u8IDfU/jDS7+h3krXR8S3CTqG6XsT0m7GnlQyVZIUTwpWGhv4lAFRLNNQPj2oD+i45FmT
+ CcHWsrPk+3Dk/rQDg==
+From: Alice <alice@signer.example>
+To: bob@rcpt.example
+Subject: Factuur oktober
+Date: Mon, 26 Oct 2026 10:00:00 +0100
+Message-ID: <f1@signer.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hallo Bob,
+
+In de bijlage  de factuur voor oktober.   
+
+

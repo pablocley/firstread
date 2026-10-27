@@ -101,11 +101,11 @@ The fail-open rate, degraded rate and per-tier deadline misses are first-class m
 |---|---|
 | `firstread-core` | the contract: mail state, delivery context, scopes, signals, typed decisions, providers, the directive, verdicts, feedback, events, the stamp |
 | `firstread-parse` | hostile MIME to a normalised `MailState`, visible text, links, attachments, QR codes |
-| `firstread-auth` | SPF, DKIM 1 and 2, DMARC, ARC, `Authentication-Results` |
-| `firstread-net` | DNS, DNSBL, MTA-STS / DANE / TLS-RPT, RDAP, caches |
+| `firstread-auth` | built: trusted `Authentication-Results`, DKIM (RFC 6376 / 8301 / 8463) and DMARC alignment judged at the delivery time ([ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)); to come: SPF, ARC |
+| `firstread-net` | built: the DNS contract, every lookup kept for the record, a recorded resolver for replay, a live stub resolver with deadlines, a per-message budget and a cache; to come: DNSBL, MTA-STS / DANE / TLS-RPT, RDAP |
 | `firstread-links` | static URL analysis, lookalikes, brand impersonation, checksummed extractors |
 | `firstread-ml` | embeddings, heads, calibration, content cache keys, tier-2 client |
-| `firstread-graph` | mailbox memory (built: senders, correspondents, threads, IBANs per domain, the owner's labels; [ADR-0018](decisions/0018-mailbox-memory-v0.md)); organisation memory, sender profiles and folders to come |
+| `firstread-graph` | mailbox memory (built: senders and domains split by authentication, correspondents, threads the owner started, IBANs per verified domain, the owner's labels; [ADR-0018](decisions/0018-mailbox-memory-v0.md), [ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)); organisation memory, sender profiles and folders to come |
 | `firstread-learn` | learners over the event log: counters, exemplars, residual heads, platform heads, promotion |
 | `firstread-events` | event schema and adapters: delivery, IMAPSieve, push-notification Lua, digest and API feedback |
 | `firstread-commons` | indicator export with privacy gates, signing, hub client, and the hub itself |

@@ -1,0 +1,25 @@
+{
+ "recorded": "2026-10-27",
+ "resolver": "https://dns.google/resolve",
+ "answers": {
+  "records": 1003,
+  "no_records": 600,
+  "temp_error": 4
+ },
+ "messages": 2144,
+ "splits": [
+  "train",
+  "calib",
+  "dev"
+ ],
+ "sources": [
+  "lore",
+  "untroubled"
+ ],
+ "window_days": 400,
+ "window": [
+  1758499200,
+  1793231999
+ ],
+ "shards": 8
+}

@@ -1,0 +1,180 @@
+{
+ "body-changed": {
+  "at": 1793087035,
+  "dkim": [
+   "fail"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "body hash mismatch"
+ },
+ "ed25519": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "ed25519-sha256 (RFC 8463)"
+ },
+ "expiring-expired": {
+  "at": 1793126635,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "x= before the delivery time"
+ },
+ "expiring-valid": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "x= after the delivery time"
+ },
+ "extra-from-on-top": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "unusable",
+  "identity": false,
+  "why": "a second From added above a signed message"
+ },
+ "key-not-recorded": {
+  "at": 1793087035,
+  "dkim": [
+   "temperror"
+  ],
+  "dmarc": "temperror",
+  "identity": false,
+  "why": "a name the recording does not hold is a temporary error, never 'no record'"
+ },
+ "length-appended": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "l= signature with text appended: passes, but verifies no identity"
+ },
+ "length-exact": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "l= equal to the body length"
+ },
+ "lf-endings": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "stored with bare LF; verified as CRLF"
+ },
+ "no-key": {
+  "at": 1793087035,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "no key record"
+ },
+ "revoked-key": {
+  "at": 1793087035,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "empty p="
+ },
+ "rsa1024": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "1024-bit keys are still valid (RFC 8301)"
+ },
+ "rsa2048-relaxed": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "aligned rsa-sha256, relaxed/relaxed"
+ },
+ "rsa2048-simple": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "pass",
+  "identity": true,
+  "why": "simple/simple"
+ },
+ "rsa512": {
+  "at": 1793087035,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "keys under 1024 bits are not accepted"
+ },
+ "sha1": {
+  "at": 1793087035,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "rsa-sha1 must not be considered valid (RFC 8301)"
+ },
+ "subject-changed": {
+  "at": 1793087035,
+  "dkim": [
+   "fail"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "signed header changed"
+ },
+ "testing-key": {
+  "at": 1793087035,
+  "dkim": [
+   "permerror"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "t=y keys must not be treated differently from unsigned mail"
+ },
+ "third-party-signer": {
+  "at": 1793087035,
+  "dkim": [
+   "pass"
+  ],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "valid signature by another domain: not the From identity"
+ },
+ "unsigned": {
+  "at": 1793087035,
+  "dkim": [],
+  "dmarc": "unaligned",
+  "identity": false,
+  "why": "no signature"
+ }
+}

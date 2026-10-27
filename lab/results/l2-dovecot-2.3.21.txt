@@ -2,26 +2,26 @@
 ## A normal: ham with forged X-Firstread-Folder: junk and Keywords: $IsTrusted
   delivery: accepted (0.1s)
   stored in INBOX; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_083d74d3d7d8e41a; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_7463403f1f725813; tiers=0; models=none;
 
 ## B normal: spam with forged Folder: inbox and an obsolete-spelling Keywords header
   delivery: accepted (0.1s)
   stored in Junk; flags [\Recent $Junk]
-    X-Firstread: v=1; d=lab-l2; id=st_34ebe9ab0bf1264d; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_f639db2e7d1c1756; tiers=0; models=none;
     X-Firstread-Folder: junk
     X-Firstread-Keywords: $Junk
 
 ## C user rule files it: spam whose subject matches the user's own rule
   delivery: accepted (0.1s)
   stored in Acme; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_977c00c3169110f9; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_6550dc3e56a688d6; tiers=0; models=none;
     X-Firstread-Folder: junk
     X-Firstread-Keywords: $Junk
 
 ## D user rule files it: ham whose subject matches the user's own rule
   delivery: accepted (0.1s)
   stored in Acme; flags [\Recent]
-    X-Firstread: v=1; d=lab-l2; id=st_6ce28e83c019265f; tiers=0; models=none;
+    X-Firstread: v=1; d=lab-l2; id=st_6dfcbd63a6197d80; tiers=0; models=none;
 
 ## E daemon down: ham with forged Folder: junk
   delivery: accepted (0.1s)
@@ -50,6 +50,9 @@
   owner: MOVE Junk -> Trash (deleting junk teaches nothing)
   other2, same sender: Junk
   owner: APPEND to Sent, a message to contact@partner.example
-  contact1, the reply: INBOX; wrote_to_sender=1 known_thread=1 first_contact=0
-  label events learned: 2 (the two moves by the owner; firstread's own filing into Junk at delivery is not an IMAP action)
+  contact1, the reply: INBOX; wrote_to_sender_unverified=1 reply_to_sent=1 first_contact=0 (no DKIM in the fixtures, so the unverified record)
+  letter1 from nieuwsbrief@krant.example: INBOX
+  owner: MOVE INBOX -> Archief (filing it away)
+  letter2, same sender, would be junk on its content: INBOX
+  label events learned: 3 (the owner's two Junk moves and the filing; firstread's own filing into Junk at delivery is not an IMAP action)
   snapshots in the records: ['mem/0', 'mem/2', 'mem/3', 'mem/5', 'mem/6', 'mem/7', 'mem/9']

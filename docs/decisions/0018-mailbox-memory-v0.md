@@ -1,6 +1,6 @@
 # ADR-0018 · Mailbox memory v0: hashed facts from deliveries and the owner's own actions
 
-Status: accepted for v0; the store choice of ADR-0006 stays open
+Status: accepted for v0; facts and identity revised in [ADR-0019](0019-own-dkim-dmarc-and-memory-v1.md) (format 2); the store choice of ADR-0006 stays open
 
 ## Context
 
@@ -61,16 +61,18 @@ and docs/08-learning.md describe that memory; none of it was built.
   no new legitimate message in Junk in any profile. That fails the rule of improving under several
   profiles, so memory is not a champion change; it runs only with `--memory`.
 - Delivery counts (`*_seen_log`) are raised by anyone who sends; with no owner actions they are all
-  memory has, and they cost spam caught. Whether they stay an input is the next question.
+  memory has, and they cost spam caught. Removed in format 2 (ADR-0019): only the owner writes
+  trust.
 - **Identity gap.** Facts key on the From address; only IBANs wait for verified identity. A forger
   using a correspondent's address gets that correspondent's history, and an owner junking the
   forgery junks the real sender. Before memory may lower P(junk) outside shadow mode, history that
   lowers it must be read only for verified identities (DMARC pass in a trusted
   `Authentication-Results`), which needs the MTA's `Authentication-Results` or firstread's own
-  SPF/DKIM/DMARC with recorded DNS.
+  SPF/DKIM/DMARC with recorded DNS. ADR-0019 adds our own DKIM and DMARC and splits history by
+  verified identity; senders who never authenticate remain open.
 - Not built yet: organisation scope, hook G events (`$Junk` / `$NotJunk` flags, replies seen as
   `\Answered`), backfill of an existing mailbox's history, folder habits, exemplar memory, and a
   way to tell firstread's own IMAP sessions apart in IMAPSieve (hook C is to use `doveadm`, which
   does not run IMAPSieve).
-- Domain-level facts treat a free-mail domain like any other; whether that needs a provider list
-  (a data file) is open.
+- Domain-level facts treat a free-mail domain like any other. Format 2 gives free-mail domains no
+  domain facts (a data file, ADR-0019).
