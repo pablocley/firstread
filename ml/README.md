@@ -15,8 +15,8 @@ eval/         the evaluation harness over fixtures/ and the private eval set    
 ## Sidecars, heads and their tests
 
 `sidecar/server.py` serves tier-1 heads (a vector per `noul` question, a matrix per choice or
-score question) over cached embeddings; `sidecar/decision_server.py` serves a JEV-style decision
-model as tier 2 (any question, by its text). `heads/train.py` trains heads for the questions in
+score question) over cached embeddings; `sidecar/decision_server.py` puts Mica 4B's own server behind
+the same protocol as tier 2 (any question, by its text). `heads/train.py` trains heads for the questions in
 `[heads] questions` that the lab's items label, and `train.py verdict <kind>` a verdict's combiner.
 `distill/teach.py` has a decision model label lab messages with the whole catalogue (the teacher),
 and `[heads] teacher` in `lab/experiment.toml` distils heads from its answers. Tests, with the lab's
@@ -27,11 +27,10 @@ Python: `python3 -I tests/test_sidecars.py`, `tests/test_train.py` and `tests/te
 ```
 pip install torch transformers tokenizers safetensors sentence-transformers model2vec
 python3 -I bench/bench_encoders.py <empty cache dir>
-python3 -I bench/bench_jev08.py <dir with chaoliangUNSW/Jev-Style-0.8B-Decision-v3 downloaded>
+python3 -I bench/bakeoff.py sample|mica|report ...   # decision-model bake-off (docs/measurements)
 ```
 
-`bench_jev08.py` imports the model's own loader from the model directory; verify the download
-against the model's `manifest.json` first.
+`bakeoff.py mica` uses the prompt code of Mica's own runtime (akivet/Mica, pinned in the measurement).
 
 ## Rules
 

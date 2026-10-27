@@ -1,60 +1,67 @@
-"""The tier-2 sidecar: a JEV-style decision model behind the provider contract (docs/14-providers.md).
+"""The tier-2 sidecar: Mica (sky7350/Mica-v0.5-4B) behind the provider contract (docs/14-providers.md).
 
-Usage: python3 -I decision_server.py --socket PATH --model-dir DIR --release ID
-                                     [--licence NAME --commercial-use yes|no] [--max-input-tokens N]
-                                     [--threads N]
+Usage: python3 -I decision_server.py --socket PATH --mica URL --release ID [--timeout S]
 
-DIR holds a JEV-style model with its own `jev_style_decision.JevStyleDecision` (as published with
-chaoliangUNSW/Jev-Style-0.8B-Decision-v3, docs/04-models.md; the same interface ml/bench/bench_jev08.py
-measured). --release names the model and its revision; it is what calibrations are fitted for.
+Mica runs in its own server (akivet/Mica: llama.cpp with the Q8_0 GGUF on a CPU, its INT8 runtime on
+an NVIDIA GPU), which renders the prompt and reads the answer labels exactly as the model was trained.
+This sidecar only translates: our sidecar protocol in, Mica's `/v1/systemone` out. --mica must be a
+loopback URL (http://127.0.0.1:8010): customer mail never leaves the machine. --release names the model,
+its revision and runtime (e.g. mica-v0.5-4b@5ea7aafe-q8_0); calibrations are fitted for it.
 
-Speaks the frames of `firstread-core::wire` like server.py, and declares "*": it reads each
-question's text, so it can be asked any question, including the rules people write in words:
+Speaks the frames of `firstread-core::wire` like server.py, and declares "*": Mica reads each question's
+text, so it can be asked any question, including rules people write in words:
   {"op": "manifest"} -> release, licence, commercial_use, supported ["*"], max_input_tokens
   {"op": "logits", "text": ..., "questions": [ids], "specs": [{"id", "text", "kind", "outcomes"}]}
       -> {"logits": [[...], ...]} in each question's outcome order
-The model's raw scores are returned as logits: per outcome, logit(" yes") - logit(" no") at that
-outcome's readout token, before the model's own temperature (its readout_config.json). The daemon's
-calibration, fitted in the lab, turns them into decisions. The model directory is checked against its
-own sha256 manifest at load (verify=True). Not measured on our mail: the model
-card is a claim, and a calibration fitted in the lab comes first (no calibration, no decision).
-Never called in the delivery path: firstreadd asks it from its queue after delivery.
+Mica returns probabilities (with its own temperature); their logarithms go back as logits, and the
+daemon's calibration, fitted in the lab, decides (no calibration, no decision). At most 16 questions go
+in one request, as many as Mica answers from one read of the mail.
 """
 import argparse
 import json
+import math
 import os
 import socket
 import struct
 import sys
+import urllib.parse
+import urllib.request
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--socket", required=True)
-ap.add_argument("--model-dir", required=True)
-ap.add_argument("--release", required=True)
-ap.add_argument("--licence", default="Apache-2.0")
-ap.add_argument("--commercial-use", choices=["yes", "no"], default="yes")
-ap.add_argument("--max-input-tokens", type=int, default=4096)
-ap.add_argument("--threads", type=int, default=0)
-a = ap.parse_args()
-
-def logits_of(spec, scores):
-    """Raw scores in the question's outcome order. The model names noul outcomes "false" / "true",
-    choice outcomes by option and score levels "0".."k-1" (option_names in its runtime)."""
-    names = ["false", "true"] if spec["kind"] == "noul" else spec["outcomes"]
-    keys = names if spec["kind"] != "score" else [str(i) for i in range(len(names))]
-    missing = [k for k in keys if k not in scores]
-    if missing:
-        raise ValueError(f"{spec['id']}: the model returned no score for {missing}")
-    return [float(scores[k]) for k in keys]
+MAX_QUESTIONS = 16
+FLOOR = 1e-12
 
 
-def question_of(spec):
-    """The question in the form JevStyleDecision.decide_many takes (bench_jev08.py)."""
+def mica_question(spec):
+    """Our question as Mica's request format (its model card, "Request format")."""
     if spec["kind"] == "noul":
-        return {"t": "noul", "ins": spec["text"], "crit": None}
+        return {"type": "noul", "instructions": spec["text"]}
     if spec["kind"] == "choice":
-        return {"t": "choice", "ins": spec["text"], "crit": {o: o.replace("_", " ") for o in spec["outcomes"]}}
-    return {"t": "score", "ins": spec["text"], "crit": list(spec["outcomes"])}
+        return {"type": "choice", "instructions": spec["text"],
+                "criteria": {o: o.replace("_", " ") for o in spec["outcomes"]}}
+    return {"type": "score", "instructions": spec["text"], "criteria": list(spec["outcomes"])}
+
+
+def logits_of(spec, answer):
+    """Log-probabilities in our outcome order: noul (false, true); choice by option; score by level."""
+    if spec["kind"] == "noul":
+        p = [1.0 - answer["noul"], answer["noul"]]
+    elif spec["kind"] == "choice":
+        p = [answer["probabilities"][o] for o in spec["outcomes"]]
+    else:
+        p = [answer["probabilities"][str(i)] for i in range(len(spec["outcomes"]))]
+    return [math.log(max(float(x), FLOOR)) for x in p]
+
+
+def ask(url, timeout, text, specs):
+    out = []
+    for i in range(0, len(specs), MAX_QUESTIONS):
+        chunk = specs[i:i + MAX_QUESTIONS]
+        body = json.dumps({"state": text, "questions": {s["id"]: mica_question(s) for s in chunk}}).encode()
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            answers = json.loads(r.read())["answers"]
+        out += [logits_of(s, answers[s["id"]]) for s in chunk]
+    return out
 
 
 def recv_exact(c, n):
@@ -68,23 +75,26 @@ def recv_exact(c, n):
 
 
 def main():
-    sys.path.insert(0, a.model_dir)
-    import torch
-    if a.threads:
-        torch.set_num_threads(a.threads)
-    from jev_style_decision import JevStyleDecision
-    model = JevStyleDecision(a.model_dir, device="cpu", dtype="float32", verify=True)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--socket", required=True)
+    ap.add_argument("--mica", required=True)
+    ap.add_argument("--release", required=True)
+    ap.add_argument("--timeout", type=float, default=120)
+    a = ap.parse_args()
+    host = urllib.parse.urlparse(a.mica).hostname
+    if host not in ("127.0.0.1", "::1", "localhost"):
+        sys.exit(f"--mica {a.mica}: only a server on this machine (customer mail never leaves it)")
+    url = a.mica.rstrip("/") + "/v1/systemone"
 
     def handle(req):
         if req["op"] == "manifest":
-            return {"release": a.release, "licence": a.licence, "commercial_use": a.commercial_use == "yes",
-                    "languages": [], "max_input_tokens": a.max_input_tokens, "supported": ["*"]}
+            return {"release": a.release, "licence": "Apache-2.0", "commercial_use": True,
+                    "languages": [], "max_input_tokens": 32768, "supported": ["*"]}
         if req["op"] == "logits":
             specs = req.get("specs") or []
             if [s["id"] for s in specs] != list(req["questions"]):
                 return {"error": "specs must name the questions, in order"}
-            out = model.decide_many(req["text"], [question_of(s) for s in specs])
-            return {"logits": [logits_of(s, r["scores"]) for s, r in zip(specs, out)]}
+            return {"logits": ask(url, a.timeout, req["text"], specs)}
         return {"error": "unknown op"}
 
     if os.path.exists(a.socket):
@@ -92,7 +102,7 @@ def main():
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     srv.bind(a.socket)
     srv.listen(4)
-    print(f"decision sidecar: {a.release} on {a.socket}", flush=True)
+    print(f"decision sidecar: {a.release} via {url} on {a.socket}", flush=True)
     while True:
         c, _ = srv.accept()
         try:

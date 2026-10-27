@@ -47,7 +47,8 @@ Nothing in the lab labels importance, intent, urgency or category.
    verified. Domain age and lookalikes are not built, so they are not written.
 7. **Tier 2 behind the same sidecar protocol.** A decision model is a `Decider` that declares `*`
    (it reads each question's text) and receives question specs. `ml/sidecar/decision_server.py`
-   wraps the JEV-style model's own `JevStyleDecision` and returns log-probabilities as logits.
+   puts Mica 4B's own server (`/v1/systemone`, loopback only) behind it and returns
+   log-probabilities as logits; Mica was chosen in a [bake-off](../measurements/2026-10-27-decision-model-bakeoff.md).
    firstreadd asks it after the reply, from a bounded queue in memory (the message is never written
    to disk; a full queue loses the late answer, not the mail), when a verdict reached `--tier2-from`
    without holding or the mailbox has rules. `tier2_update` concludes again from the record's inputs

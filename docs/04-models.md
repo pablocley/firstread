@@ -128,14 +128,14 @@ Asynchronous. Runs only for:
 - natural-language rules users write ("tag mails where a customer asks for a refund as Retour"),
 - confirming a suspected campaign once, on one representative copy.
 
-Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `ml/sidecar/decision_server.py`
-serves a JEV-style model behind the sidecar protocol (it declares `*` and reads each question's
-text), and `firstreadd --tier2` asks it after delivery from a bounded in-memory queue. Not run on
-mail here: it needs its weights, a calibration fitted on the lab's dev split, and a Dutch evaluation.
-
-Starting point: the 0.8B JEV-style model via its GGUF runtime on CPU, which scores several
-questions in one call (not yet measured here), fine-tuned on Dutch. If a GPU box is available,
-JEV-9B is the stronger option. The output contract is identical to tier 1, so swapping is a config change.
+The model: **Mica v0.5 4B**, chosen over the 0.8B JEV-style model in a quick
+[bake-off](measurements/2026-10-27-decision-model-bakeoff.md). Built
+([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `ml/sidecar/decision_server.py` puts
+Mica's own server (llama.cpp with the Q8_0 GGUF on CPU) behind the sidecar protocol (it declares `*`
+and reads each question's text, at most 16 questions per read), and `firstreadd --tier2` asks it after
+delivery from a bounded in-memory queue. Before it acts on mail: its llama.cpp runtime measured on the
+production CPU, a calibration fitted on the lab's dev split, and a Dutch evaluation. The output
+contract is identical to tier 1, so swapping is a config change.
 
 ### Rules get cheaper the more they are used
 
@@ -149,8 +149,8 @@ Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `ml/distill/tea
 model behind the sidecar protocol answer the whole question catalogue for lab messages, resumably,
 and checks it against the lab's human labels (`agreement.json`); `ml/heads/train.py` with `[heads]
 teacher` distils heads for the questions the lab has no labels for (noul by confidence-weighted
-P(true) ≥ 0.5, choice and score as matrix heads), calibrated against the teacher. Not run yet: the
-teacher available on CPU is the 0.8B model, not JEV-27B, and its agreement decides what is kept.
+P(true) ≥ 0.5, choice and score as matrix heads), calibrated against the teacher. The teacher is
+Mica 4B (the bake-off); not run yet, and its agreement decides what is kept.
 
 | ingredient | what | caution |
 |---|---|---|

@@ -1,7 +1,7 @@
 """Run: python3 -I ml/tests/test_distill.py (the lab's Python, lab/requirements.txt).
 
-Distillation end to end on a fake lab: a stand-in teacher (answering from the text, behind the real
-decision_server.py) labels the messages with ml/distill/teach.py; train.py distils a noul head and a
+Distillation end to end on a fake lab: a stand-in Mica server (fake_mica.py, answering from the text)
+behind the real decision_server.py labels the messages with ml/distill/teach.py; train.py distils a noul head and a
 choice head (a matrix) from its answers next to the human-labelled is_spam head; server.py serves
 them. Also checks the agreement report against the human labels.
 """
@@ -10,26 +10,17 @@ import numpy as np
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, f"{REPO}/ml/sidecar")
 from providers import Cache, resolve, space_id
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fake_mica
 
-TEACHER = '''
-import math
-class JevStyleDecision:
-    def __init__(self, d, device, dtype, verify=False): pass
-    def decide_many(self, state, qs):
-        t = state
-        out = []
-        for q in qs:
-            if q["t"] == "noul":
-                yes = ("factuur" in t) if "money" in q["ins"] else ("junk" in t)
-                p = {"true": 0.9 if yes else 0.1, "false": 0.1 if yes else 0.9}
-            elif q["t"] == "choice":
-                pick = "request action" if "betaal" in t else "inform"
-                p = {k: (0.8 if v == pick else 0.2 / (len(q["crit"]) - 1)) for k, v in q["crit"].items()}
-            else:
-                p = {str(i): 1.0 / len(q["crit"]) for i in range(len(q["crit"]))}
-            out.append({"probabilities": p, "scores": {k: math.log(max(v, 1e-9)) for k, v in p.items()}})
-        return out
-'''
+def teacher(text, q):
+    """A stand-in teacher that answers from the text."""
+    if q["type"] == "noul":
+        yes = ("factuur" in text) if "money" in q["instructions"] else ("junk" in text)
+        return fake_mica.typed(q, p_true=0.9 if yes else 0.1)
+    if q["type"] == "choice":
+        return fake_mica.typed(q, pick="request_action" if "betaal" in text else "inform")
+    return {"type": "score", "probabilities": {str(i): 1.0 / len(q["criteria"]) for i in range(len(q["criteria"]))}}
 
 
 def wait(path):
@@ -76,12 +67,10 @@ for split in ["train", "calib"]:
     open(f"{lab}/rendered/{split}.r1.jsonl", "w").write("\n".join(map(json.dumps, rend)) + "\n")
 cache.db.commit()
 
-model = f"{run}/model"; os.makedirs(model)
-open(f"{model}/jev_style_decision.py", "w").write(TEACHER)
-open(f"{model}/torch.py", "w").write("def set_num_threads(n):\n    pass\n")
+url, _ = fake_mica.serve(teacher)
 t2 = f"{run}/t2.sock"
 p = subprocess.Popen([sys.executable, "-I", f"{REPO}/ml/sidecar/decision_server.py", "--socket", t2,
-                      "--model-dir", model, "--release", "teacher@test"], stdout=subprocess.DEVNULL)
+                      "--mica", url, "--release", "teacher@test"], stdout=subprocess.DEVNULL)
 try:
     wait(t2)
     r = subprocess.run([sys.executable, "-I", f"{REPO}/ml/distill/teach.py", lab, t2, "--splits", "train,calib"],

@@ -10,7 +10,7 @@
 //! per attempt and a budget per message), our own DKIM and DMARC checks run on every message, and
 //! every lookup goes into the record.
 //!
-//! With `--tier2` a second provider (a JEV-style decision model behind the same sidecar protocol)
+//! With `--tier2` a second provider (the decision model, Mica, behind the same sidecar protocol)
 //! answers after delivery, from a bounded in-memory queue, for mailboxes with rules written in
 //! words (`--rules DIR`) and for verdicts that came close (`--tier2-from`); `--hook-c` applies what
 //! it adds through `doveadm` (`late.rs`). `--api-socket` serves the records read-only (`api.rs`).

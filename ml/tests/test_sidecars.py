@@ -1,29 +1,17 @@
 """Run: python3 -I ml/tests/test_sidecars.py (the lab's Python, lab/requirements.txt).
 
 Both sidecars over their real socket protocol: server.py with a noul head and a choice head
-(matrix), answering from the embedding cache; decision_server.py with a stand-in for the model's
-own JevStyleDecision, checking that its probabilities come back as logits in outcome order.
+(matrix), answering from the embedding cache; decision_server.py in front of a stand-in
+Mica server (fake_mica.py), checking requests in Mica's format, at most 16 questions per read, and
+answers back as logits in outcome order; a non-loopback Mica URL is refused.
 """
 import hashlib, json, math, os, socket, struct, subprocess, sys, tempfile, time
 import numpy as np
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, f"{REPO}/ml/sidecar")
 from providers import Cache, resolve, space_id
-
-FAKE_JEV = """import math
-class JevStyleDecision:
-    def __init__(self, d, device, dtype, verify=False): pass
-    def decide_many(self, state, qs):
-        assert isinstance(state, str)
-        out = []
-        for q in qs:
-            if q["t"] == "noul": p = {"true": 0.9, "false": 0.1}
-            elif q["t"] == "choice": p = {k: (0.7 if i == 1 else 0.3 / (len(q["crit"]) - 1)) for i, k in enumerate(q["crit"])}
-            else: p = {str(i): (1.0 if i == 4 else 0.0) for i in range(len(q["crit"]))}
-            out.append({"probabilities": p, "scores": {k: math.log(max(v, 1e-9)) for k, v in p.items()}})
-        return out
-"""
-
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fake_mica
 
 def wait(path):
     for _ in range(200):
@@ -63,24 +51,33 @@ def heads_server():
 
 
 def decision_server():
-    d = tempfile.mkdtemp(); sock = f"{d}/t2.sock"; model = f"{d}/model"
-    os.makedirs(model)
-    open(f"{model}/jev_style_decision.py", "w").write(FAKE_JEV)
-    open(f"{model}/torch.py", "w").write("def set_num_threads(n):\n    pass\n")
+    def answer(text, q):
+        if q["type"] == "noul":
+            return fake_mica.typed(q, p_true=0.9)
+        return fake_mica.typed(q, pick="request_action", level=4)
+    url, seen = fake_mica.serve(answer)
+    d = tempfile.mkdtemp(); sock = f"{d}/t2.sock"
+    bad = subprocess.run([sys.executable, "-I", f"{REPO}/ml/sidecar/decision_server.py", "--socket", sock,
+                          "--mica", "http://example.org:8010", "--release", "x"], capture_output=True, text=True)
+    assert bad.returncode != 0 and "only a server on this machine" in bad.stderr
     p = subprocess.Popen([sys.executable, "-I", f"{REPO}/ml/sidecar/decision_server.py", "--socket", sock,
-                          "--model-dir", model, "--release", "fake@1"], stdout=subprocess.DEVNULL)
+                          "--mica", url, "--release", "mica@test"], stdout=subprocess.DEVNULL)
     try:
         wait(sock)
         m = call(sock, {"op": "manifest"})
-        assert m["supported"] == ["*"] and m["release"] == "fake@1" and m["commercial_use"] is True
+        assert m["supported"] == ["*"] and m["release"] == "mica@test" and m["commercial_use"] is True
         specs = [{"id": "rule:bank", "text": "Mail from my bank", "kind": "noul", "outcomes": []},
                  {"id": "intent", "text": "What?", "kind": "choice", "outcomes": ["inform", "request_action", "sell"]},
                  {"id": "urgency", "text": "How urgent?", "kind": "score", "outcomes": ["a", "b", "c", "d", "e", "f"]}]
+        specs += [{"id": f"topic_{i}", "text": f"About {i}?", "kind": "noul", "outcomes": []} for i in range(20)]
         r = call(sock, {"op": "logits", "text": "Subject: x", "questions": [s["id"] for s in specs], "specs": specs})
         sm = lambda z: [math.exp(x) / sum(math.exp(y) for y in z) for x in z]
+        assert len(r["logits"]) == 23
         assert abs(sm(r["logits"][0])[1] - 0.9) < 1e-6, r
-        assert abs(sm(r["logits"][1])[1] - 0.7) < 1e-6, r
+        assert abs(sm(r["logits"][1])[1] - 0.8) < 1e-6, r
         assert sm(r["logits"][2])[4] > 0.999, r
+        assert [len(x["questions"]) for x in seen] == [16, 7], "at most 16 questions per read"
+        assert seen[0]["questions"]["intent"]["criteria"]["request_action"] == "request action"
         assert "error" in call(sock, {"op": "logits", "text": "x", "questions": ["a"], "specs": []})
     finally:
         p.kill()

@@ -16,7 +16,7 @@ the four questions the lab has labels for, and wall time per mail. A ranking, no
 | questions | `is_spam`, `risk_phishing`, `risk_fraud`, `asks_payment_or_bank_change`, worded as in `crates/firstread-stamp/data/questions.json`, one call per question, uncalibrated |
 | labels | `ml/heads/labels.py`; phishing, fraud and payment labels come from the synthetic Dutch slice only |
 | sample | dev split, seed 20261027, 3 per group (24 mails): synthetic phishing, CEO and IBAN fraud, legitimate invoices and reminders, other synthetic legitimate, synthetic spam, SpamAssassin ham, hard ham, spam. Jev also ran on 8 per group (64) |
-| script | `ml/bench/bakeoff.py` (`sample`, `jev`, `mica`, `report`) |
+| script | `ml/bench/bakeoff.py` (`sample`, `mica`, `report`); the `jev` path as run is in git at 2c029ae, removed afterwards |
 
 ## Results, same 24 mails
 
@@ -45,5 +45,9 @@ Jev on all 64: is_spam 0.918, phishing 0.878, fraud 0.779, payment 0.997 (AUC); 
 Mica 4B is the teacher for distillation (an offline job, so 37 s per mail is affordable on a lab
 sample) and the tier-2 candidate. Before it serves tier 2: its llama.cpp Q8_0 runtime measured on the
 production CPU, a calibration fitted on the lab's dev split, and the agreement check of
-`ml/distill/teach.py` on a larger sample. Jev 0.8B stays as the fallback when 37 s per mail is too
-slow and llama.cpp is not available.
+`ml/distill/teach.py` on a larger sample. Jev 0.8B is dropped (code and weights removed).
+
+Why Mica was slow here: this CPU has AVX-512 VNNI but no BF16 units, so BF16 ran emulated; the
+Qwen3.5 linear-attention layers ran transformers' reference PyTorch code (its fast kernels are not
+installed, and are GPU kernels); and each question re-read the mail, where Mica's own runtime reads it
+once and only adds each question. Its llama.cpp Q8_0 path addresses all three.

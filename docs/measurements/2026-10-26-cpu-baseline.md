@@ -13,7 +13,7 @@ before designing around it. **Not production latencies.**
   "much slower")
 - Model files for the 0.8B model verified against its published sha256 manifest
 
-Scripts: [`ml/bench/bench_jev08.py`](../../ml/bench/bench_jev08.py), [`ml/bench/bench_encoders.py`](../../ml/bench/bench_encoders.py).
+Scripts: `ml/bench/bench_jev08.py` (removed with the model after the [bake-off](2026-10-27-decision-model-bakeoff.md); in git at 2c029ae), [`ml/bench/bench_encoders.py`](../../ml/bench/bench_encoders.py).
 Medians over 6–50 warm runs. The script loads harrier with its default dtype (bfloat16), which is
 what `bench_encoders_result.json` records; the float32 figure below came from re-running the same
 encode with `model_kwargs={"dtype": torch.float32}` (8 warm runs).

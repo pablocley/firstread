@@ -48,7 +48,7 @@ X-Firstread-Folder: junk
 | keywords | `$Phishing`, `$Junk`, `$Important`, `$IsTrusted`, `$HasAttachment`, `$CanUnsubscribe`, `fr-money`, your own rule tags… |
 | folder | Junk for junk and phishing; Later for bulk you never read, if you turn it on |
 
-**A moment later, from the decision model.** A JEV-style decision model reads the mail and answers
+**A moment later, from the decision model.** A decision model (Mica 4B) reads the mail and answers
 questions in plain words: what does it want from you, how urgent is it, does it ask for a payment,
 a login or secrecy, what is it about, and your own rules ("mail where a customer asks for a
 refund" → `fr-retour`). It is too slow to hold up delivery (seconds per mail on a CPU), so it runs
