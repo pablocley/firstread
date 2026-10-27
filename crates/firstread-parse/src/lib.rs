@@ -56,6 +56,12 @@ pub struct Parsed {
     pub header_count: usize,
     /// Whether `In-Reply-To` or `References` is present.
     pub is_reply: bool,
+    /// Message-IDs named in `In-Reply-To` and `References`, without angle brackets, at most
+    /// [`MAX_THREAD_IDS`].
+    pub thread_ids: Vec<String>,
+    /// `To`, `Cc` and `Bcc` addresses, lowercased, at most [`MAX_RECIPIENTS`] (a Sent copy's
+    /// recipients are who the mailbox owner wrote to).
+    pub recipients: Vec<NamedAddress>,
     /// Whether the input was longer than [`MAX_MESSAGE_BYTES`].
     pub truncated: bool,
 }
@@ -78,6 +84,22 @@ fn all_addresses(a: Option<&Address<'_>>) -> Vec<NamedAddress> {
             .collect()
     })
     .unwrap_or_default()
+}
+
+/// Most Message-IDs kept from `In-Reply-To` and `References`.
+pub const MAX_THREAD_IDS: usize = 50;
+/// Most recipient addresses kept.
+pub const MAX_RECIPIENTS: usize = 100;
+
+fn ids(v: &HeaderValue<'_>) -> Vec<String> {
+    v.as_text_list()
+        .map(|l| {
+            l.iter()
+                .map(|s| s.trim().trim_matches(['<', '>']).to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn header_present(v: &HeaderValue<'_>) -> bool {
@@ -294,7 +316,12 @@ pub fn parse(raw: &[u8]) -> Result<Parsed, ParseError> {
         html,
         has_text_part,
         has_html_part,
-        list_id: header_text(msg.list_id()),
+        // mail-parser reads List-Id as an address list, so take the raw value (RFC 2919:
+        // an optional phrase and the list id in angle brackets).
+        list_id: msg
+            .header_raw("List-Id")
+            .map(|v| v.split_whitespace().collect::<Vec<_>>().join(" "))
+            .filter(|v| !v.is_empty()),
         list_unsubscribe: header_present(msg.list_unsubscribe()),
         list_unsubscribe_post: msg
             .headers()
@@ -305,6 +332,24 @@ pub fn parse(raw: &[u8]) -> Result<Parsed, ParseError> {
         date: msg.date().map(|d| d.to_timestamp()),
         header_count: msg.headers().len(),
         is_reply: header_present(msg.in_reply_to()) || header_present(msg.references()),
+        thread_ids: {
+            let mut t = ids(msg.in_reply_to());
+            for r in ids(msg.references()) {
+                if !t.contains(&r) {
+                    t.push(r);
+                }
+            }
+            t.truncate(MAX_THREAD_IDS);
+            t
+        },
+        recipients: {
+            let mut r = all_addresses(msg.to());
+            r.extend(all_addresses(msg.cc()));
+            r.extend(all_addresses(msg.bcc()));
+            r.retain(|a| !a.address.is_empty());
+            r.truncate(MAX_RECIPIENTS);
+            r
+        },
         truncated,
         state,
     })
@@ -315,6 +360,30 @@ mod tests {
     use super::*;
 
     const PLAIN: &[u8] = b"From: \"Jan de Vries\" <Jan@Example.NL>\r\nReply-To: other@free.example\r\nTo: you@example.org\r\nSubject: =?UTF-8?Q?Factuur_m=C3=A4rz?=\r\nDate: Thu, 22 Oct 2026 10:45:15 +0200\r\nMessage-ID: <a@b>\r\nAuthentication-Results: mx.example.org; spf=pass smtp.mailfrom=example.nl\r\n\r\nHallo,\r\nzie https://example.nl/factuur?id=1.\r\n> oud bericht\r\n";
+
+    #[test]
+    fn list_id_is_read() {
+        let p = parse(b"From: a@x.example\r\nList-Id: Dev list <dev.lists.example>\r\nSubject: x\r\n\r\nx\r\n").unwrap();
+        assert_eq!(p.list_id.as_deref(), Some("Dev list <dev.lists.example>"));
+        let q = parse(b"From: a@x.example\r\nList-Id: <dev.lists.example>\r\n\r\nx\r\n").unwrap();
+        assert_eq!(q.list_id.as_deref(), Some("<dev.lists.example>"));
+        assert!(
+            parse(b"From: a@x.example\r\n\r\nx\r\n")
+                .unwrap()
+                .list_id
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn thread_ids_and_recipients() {
+        let p = parse(b"From: a@x.example\r\nTo: B <b@Y.example>, c@z.example\r\nCc: d@z.example\r\nIn-Reply-To: <m1@x.example>\r\nReferences: <m0@x.example> <m1@x.example>\r\nSubject: Re: hoi\r\n\r\nja\r\n").unwrap();
+        assert_eq!(p.thread_ids, vec!["m1@x.example", "m0@x.example"]);
+        let r: Vec<&str> = p.recipients.iter().map(|a| a.address.as_str()).collect();
+        assert_eq!(r, vec!["b@y.example", "c@z.example", "d@z.example"]);
+        let q = parse(b"From: a@x.example\r\nSubject: nieuw\r\n\r\nja\r\n").unwrap();
+        assert!(q.thread_ids.is_empty() && q.recipients.is_empty() && !q.is_reply);
+    }
 
     #[test]
     fn plain_message_fields() {

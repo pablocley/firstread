@@ -2,11 +2,13 @@
 //!
 //! Implemented: the delivery socket for `firstread-filter` (frames of `firstread-core::wire`),
 //! the pipeline of `firstread-pipeline` per message, a tier-1 provider reached over a local
-//! socket (a [`Decider`] with locality `LocalService`), and one JSON record per decision appended
-//! to a records file.
+//! socket (a [`Decider`] with locality `LocalService`), one JSON record per decision appended
+//! to a records file, and with `--memory` the mailbox memory of `firstread-graph`: read on every
+//! delivery, updated after the reply is sent, and taught by the mailbox owner's actions through
+//! the feedback socket (`firstread feedback`, called by Dovecot IMAPSieve scripts, hook D).
 //!
 //! Still to build (docs/01-architecture.md): the async queue for late results and tier 2, hook C
-//! updates, feedback ingestion, the HTTP API, load shedding and metrics.
+//! updates, push-notification events (hook G), the HTTP API, load shedding and metrics.
 //!
 //! Configuration is by flags; `firstreadd --help` lists them.
 
@@ -28,8 +30,13 @@ use firstread_core::provider::{
 use firstread_core::wire::{
     MAX_JSON_FRAME, Reply, Request, WireDirective, read_frame, write_frame,
 };
-use firstread_pipeline::{Combiner, Config, Tier1};
+use firstread_graph::{
+    Applied, FileStore, Hasher, MailboxMemory, MemoryEvent, MemoryStore, MessageKeys, SentKeys,
+};
+use firstread_pipeline::{Combiner, Config, Memory, Tier1};
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_MESSAGE: u64 = 64 * 1024 * 1024;
 
@@ -47,16 +54,25 @@ struct Args {
     data_class: DataClass,
     sidecar_timeout_ms: u64,
     shadow: bool,
+    memory: Option<PathBuf>,
+    feedback_socket: Option<PathBuf>,
+    own_actors: Vec<String>,
 }
 
 const HELP: &str = "firstreadd --socket PATH [--sidecar PATH --calibration FILE] [--combiner FILE]
   [--records FILE] [--deployment ID] [--mac-key KEY] [--trusted-authserv ID,ID]
   [--junk-threshold P] [--render-max-chars N] [--data-class public|synthetic|customer]
   [--sidecar-timeout-ms MS] [--shadow]
+  [--memory DIR [--feedback-socket PATH] [--own-actors NAME,NAME]]
 
 --shadow: decide and record every message as usual, but reply with an empty directive, so the
 filter only removes foreign firstread headers and nothing is visible or filed
-(docs/07-evaluation.md, rollout step 1). Records carry \"shadow\": true.";
+(docs/07-evaluation.md, rollout step 1). Records carry \"shadow\": true. Memory still learns.
+
+--memory: per-mailbox memory (state and event log, keyed hashes only) in DIR; its facts
+(mailbox.*) join the combiner's inputs. --feedback-socket: where `firstread feedback` reports the
+mailbox owner's actions. --own-actors: actors whose feedback is firstread's own (for example the
+account hook C uses); it is dropped, never learned.";
 
 fn parse_args() -> Result<Args, String> {
     let mut a = Args {
@@ -73,6 +89,9 @@ fn parse_args() -> Result<Args, String> {
         data_class: DataClass::Customer,
         sidecar_timeout_ms: 30_000,
         shadow: false,
+        memory: None,
+        feedback_socket: None,
+        own_actors: vec![],
     };
     let mut it = std::env::args().skip(1);
     while let Some(flag) = it.next() {
@@ -108,6 +127,15 @@ fn parse_args() -> Result<Args, String> {
                 };
             }
             "--shadow" => a.shadow = true,
+            "--memory" => a.memory = Some(val()?.into()),
+            "--feedback-socket" => a.feedback_socket = Some(val()?.into()),
+            "--own-actors" => {
+                a.own_actors = val()?
+                    .split(',')
+                    .map(|s| s.trim().to_ascii_lowercase())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+            }
             "--help" | "-h" => return Err(HELP.into()),
             other => return Err(format!("unknown flag {other}\n{HELP}")),
         }
@@ -117,6 +145,9 @@ fn parse_args() -> Result<Args, String> {
     }
     if a.sidecar.is_some() && a.calibration.is_none() {
         return Err("--sidecar needs --calibration: no calibration, no decision".into());
+    }
+    if a.feedback_socket.is_some() && a.memory.is_none() {
+        return Err("--feedback-socket needs --memory".into());
     }
     Ok(a)
 }
@@ -209,12 +240,85 @@ impl Decider for SidecarDecider {
     }
 }
 
+/// Most mailbox memories kept loaded; past it the cache is emptied (everything is on disk).
+const MAX_LOADED_MAILBOXES: usize = 1000;
+/// Save a mailbox's state every this many events (its event log has every one).
+const SAVE_EVERY: u64 = 50;
+
+/// The mailbox memories: loaded on first use, one lock per mailbox, every applied event appended
+/// to the mailbox's event log and the state saved.
+struct Hub {
+    store: FileStore,
+    hasher: Hasher,
+    boxes: Mutex<HashMap<String, Arc<Mutex<MailboxMemory>>>>,
+    own_actors: Vec<String>,
+}
+
+fn now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
+}
+
+impl Hub {
+    fn mailbox(&self, name: &str) -> Result<Arc<Mutex<MailboxMemory>>, String> {
+        let key = name.to_ascii_lowercase();
+        let mut boxes = self.boxes.lock().map_err(|_| "memory lock poisoned")?;
+        if let Some(m) = boxes.get(&key) {
+            return Ok(Arc::clone(m));
+        }
+        if boxes.len() >= MAX_LOADED_MAILBOXES {
+            boxes.clear();
+        }
+        let m = Arc::new(Mutex::new(
+            self.store.load(&key).map_err(|e| format!("memory: {e}"))?,
+        ));
+        boxes.insert(key, Arc::clone(&m));
+        Ok(m)
+    }
+
+    fn commit(
+        &self,
+        mailbox: &str,
+        mem: &mut MailboxMemory,
+        e: &MemoryEvent,
+    ) -> Result<Applied, String> {
+        let key = mailbox.to_ascii_lowercase();
+        let applied = mem.apply(e);
+        if applied == Applied::Applied {
+            // The event log is the source of truth; the state is saved now and then, and
+            // loading replays the log past the saved state.
+            self.store
+                .append(&key, e)
+                .map_err(|e| format!("memory log: {e}"))?;
+            if mem.events.is_multiple_of(SAVE_EVERY) {
+                self.store
+                    .save(&key, mem)
+                    .map_err(|e| format!("memory save: {e}"))?;
+            }
+        }
+        Ok(applied)
+    }
+
+    fn forget(&self, mailbox: &str) -> Result<(), String> {
+        let key = mailbox.to_ascii_lowercase();
+        let mut boxes = self.boxes.lock().map_err(|_| "memory lock poisoned")?;
+        boxes.remove(&key);
+        self.store.forget(&key).map_err(|e| format!("forget: {e}"))
+    }
+
+    fn is_own(&self, actor: Option<&str>) -> bool {
+        actor.is_some_and(|a| self.own_actors.contains(&a.to_ascii_lowercase()))
+    }
+}
+
 struct State {
     cfg: Config,
     tier1: Option<(SidecarDecider, Calibration)>,
     combiner: Option<Combiner>,
     records: Option<Mutex<BufWriter<File>>>,
     shadow: bool,
+    memory: Option<Hub>,
 }
 
 fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
@@ -240,7 +344,42 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         decider: d as &dyn Decider,
         calibration: c,
     });
-    let out = firstread_pipeline::run(&state.cfg, &message, &ctx, tier1, state.combiner.as_ref());
+    // The mailbox's memory is held for the whole delivery, so deliveries to one mailbox are
+    // decided in order and each sees the ones before it. A memory failure never blocks delivery:
+    // the message is decided without memory and the error is recorded.
+    let mut memory_error = None;
+    let held = match &state.memory {
+        Some(hub) => match hub.mailbox(&ctx.user) {
+            Ok(m) => Some((hub, m)),
+            Err(e) => {
+                memory_error = Some(e);
+                None
+            }
+        },
+        None => None,
+    };
+    let mut guard = match &held {
+        Some((_, m)) => Some(m.lock().map_err(|_| "mailbox lock poisoned".to_string())?),
+        None => None,
+    };
+    let mem = match (&held, &guard) {
+        (Some((hub, _)), Some(g)) => Some(Memory {
+            hasher: &hub.hasher,
+            state: g,
+        }),
+        _ => None,
+    };
+    let mut out = firstread_pipeline::run(
+        &state.cfg,
+        &message,
+        &ctx,
+        tier1,
+        state.combiner.as_ref(),
+        mem,
+    );
+    if let Some(e) = memory_error {
+        out.record.provenance.errors.push(e);
+    }
     // In shadow mode the decision is recorded but not applied: the filter gets an empty directive.
     let applied = if state.shadow {
         Directive::default()
@@ -264,8 +403,76 @@ fn handle(state: &State, mut s: UnixStream) -> Result<(), String> {
         w.flush().map_err(|e| e.to_string())?;
     }
     let body = serde_json::to_vec(&reply).map_err(|e| e.to_string())?;
-    write_frame(&mut s, &body).map_err(|e| format!("write reply: {e}"))?;
-    Ok(())
+    let sent = write_frame(&mut s, &body).map_err(|e| format!("write reply: {e}"));
+    // Learning happens after the reply: the delivery is a fact whatever the verdict was.
+    if let (Some((hub, _)), Some(g), Some(keys)) = (&held, guard.as_mut(), out.keys) {
+        let e = MemoryEvent::Delivered { at: now(), keys };
+        hub.commit(&ctx.user, g, &e)?;
+    }
+    sent
+}
+
+#[derive(Deserialize)]
+struct FeedbackRequest {
+    v: u32,
+    op: String,
+    mailbox: String,
+    #[serde(default)]
+    actor: Option<String>,
+    #[serde(default)]
+    at: Option<i64>,
+    #[serde(default)]
+    message_len: u64,
+}
+
+/// One report of the mailbox owner's action: `junk` / `not_junk` (moved into or out of Junk),
+/// `sent` (a copy reached Sent), or `forget` (erase the mailbox's memory).
+fn handle_feedback(hub: &Hub, mut s: UnixStream) -> Result<(), String> {
+    s.set_read_timeout(Some(Duration::from_secs(30)))
+        .map_err(|e| e.to_string())?;
+    let head = read_frame(&mut s, MAX_JSON_FRAME).map_err(|e| format!("read request: {e}"))?;
+    let req: FeedbackRequest =
+        serde_json::from_slice(&head).map_err(|e| format!("request: {e}"))?;
+    if req.v != 1 {
+        return Err(format!("feedback protocol v{}", req.v));
+    }
+    if req.message_len > MAX_MESSAGE {
+        return Err("message too large".into());
+    }
+    let mut message = vec![0u8; usize::try_from(req.message_len).map_err(|e| e.to_string())?];
+    s.read_exact(&mut message)
+        .map_err(|e| format!("read message: {e}"))?;
+    let reply = if req.op == "forget" {
+        hub.forget(&req.mailbox)?;
+        serde_json::json!({"result": "forgotten"})
+    } else if hub.is_own(req.actor.as_deref()) {
+        eprintln!("firstreadd: dropped feedback from own actor (never learned)");
+        serde_json::json!({"result": "dropped"})
+    } else {
+        let p = firstread_parse::parse(&message).map_err(|e| format!("parse: {e:?}"))?;
+        let at = req.at.unwrap_or_else(now);
+        let e = match req.op.as_str() {
+            "junk" | "not_junk" => MemoryEvent::Label {
+                at,
+                keys: MessageKeys::from_parsed(&hub.hasher, &p, false),
+                junk: req.op == "junk",
+            },
+            "sent" => MemoryEvent::Sent {
+                at,
+                keys: SentKeys::from_parsed(&hub.hasher, &p),
+            },
+            other => return Err(format!("unknown feedback op {other}")),
+        };
+        let m = hub.mailbox(&req.mailbox)?;
+        let mut g = m.lock().map_err(|_| "mailbox lock poisoned".to_string())?;
+        let applied = hub.commit(&req.mailbox, &mut g, &e)?;
+        serde_json::json!({
+            "result": if applied == Applied::Applied { "applied" } else { "duplicate" },
+            "snapshot": g.snapshot(),
+        })
+    };
+    let body = serde_json::to_vec(&reply).map_err(|e| e.to_string())?;
+    write_frame(&mut s, &body).map_err(|e| format!("write reply: {e}"))
 }
 
 fn load_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T, String> {
@@ -306,10 +513,11 @@ fn run() -> Result<(), String> {
                 .map_err(|e| format!("{}: {e}", p.display()))
         })
         .transpose()?;
+    let mac_key_bytes = a.mac_key.as_bytes().to_vec();
     let state = Arc::new(State {
         cfg: Config {
             deployment: a.deployment,
-            mac_key: a.mac_key.into_bytes(),
+            mac_key: mac_key_bytes.clone(),
             trusted_authserv_ids: a.trusted,
             junk_threshold: a.junk_threshold,
             questions,
@@ -321,9 +529,44 @@ fn run() -> Result<(), String> {
         combiner,
         records,
         shadow: a.shadow,
+        memory: match &a.memory {
+            Some(dir) => {
+                // The memory key is derived from the deployment key, never the key itself.
+                let key = Hasher::new(mac_key_bytes.as_slice()).id("derive", "firstread-memory/1");
+                let hasher = Hasher::new(key.as_bytes());
+                Some(Hub {
+                    store: FileStore::new(dir, hasher.clone())
+                        .map_err(|e| format!("{}: {e}", dir.display()))?,
+                    hasher,
+                    boxes: Mutex::new(HashMap::new()),
+                    own_actors: a.own_actors.clone(),
+                })
+            }
+            None => None,
+        },
     });
     if a.shadow {
         eprintln!("firstreadd: shadow mode: decisions are recorded, not applied");
+    }
+    if let Some(fs) = &a.feedback_socket {
+        let _ = std::fs::remove_file(fs);
+        let fl = UnixListener::bind(fs).map_err(|e| format!("{}: {e}", fs.display()))?;
+        eprintln!("firstreadd: feedback on {}", fs.display());
+        let st = Arc::clone(&state);
+        std::thread::spawn(move || {
+            for conn in fl.incoming() {
+                match conn {
+                    Ok(s) => {
+                        if let Some(hub) = &st.memory
+                            && let Err(e) = handle_feedback(hub, s)
+                        {
+                            eprintln!("firstreadd: feedback: {e}");
+                        }
+                    }
+                    Err(e) => eprintln!("firstreadd: feedback accept: {e}"),
+                }
+            }
+        });
     }
     let _ = std::fs::remove_file(&a.socket);
     let listener =

@@ -89,23 +89,15 @@ def heads(run_dir, exp, lab, cache_dir):
     print(json.dumps({"release": release, "temperature": t, "train_n": int(len(ytr))}))
 
 
-def combiner(run_dir, exp, lab, records_path):
-    items = manifest(lab, "calib")
-    label = {idem_key(it["path"], it["recipient"]): (1 if it["label"] == "junk" else 0) for it in items}
-    recs = [json.loads(l) for l in open(records_path)]
-    disabled = exp.get("combiner", {}).get("disabled", [])
-    names = sorted({k for r in recs for k in r["features"]})
-    # A disabled entry removes a feature by exact name or by prefix ("links." removes all link facts).
-    names = [n for n in names if not any(n.startswith(d) for d in disabled)]
-    X, y = [], []
-    for r in recs:
-        if r["idempotency_key"] in label and not r["input"]["parse_failed"]:
-            X.append([r["features"].get(n, 0.0) for n in names])
-            y.append(label[r["idempotency_key"]])
-    X, y = np.asarray(X, dtype=float), np.asarray(y)
+MEMORY = "mailbox."
+# Facts that are 1 when the mailbox knows nothing about the sender or the thread. In residual mode
+# they are left out, so that mail from a stranger is decided exactly as without memory.
+ABSENCE = {"mailbox.first_contact", "mailbox.unknown_thread"}
+
+
+def fit_logistic(X, y, exp):
     mu, sd = X.mean(0), X.std(0)
     keep = sd > 1e-9
-    names = [n for n, k in zip(names, keep) if k]
     X, mu, sd = X[:, keep], mu[keep], sd[keep]
     l1 = float(exp["combiner"].get("l1_ratio", 0.0))
     # saga shuffles the data; a fixed seed makes the combiner, and so every decision, reproducible.
@@ -114,11 +106,67 @@ def combiner(run_dir, exp, lab, records_path):
     clf.fit((X - mu) / sd, y)
     w = clf.coef_[0] / sd
     b = float(clf.intercept_[0] - np.sum(clf.coef_[0] * mu / sd))
-    weights = {n: float(v) for n, v in zip(names, w)}
+    return keep, w, b
+
+
+def fit_residual(M, y, offset, C):
+    """Memory weights on top of a fixed base logit: no intercept and no centring, so a message whose
+    memory facts are all 0 keeps the base logit exactly. L2 penalty, scaled like sklearn's."""
+    from scipy.optimize import minimize
+    sd = M.std(0)
+    keep = sd > 1e-9
+    Ms = M[:, keep] / sd[keep]
+
+    def loss(w):
+        z = offset + Ms @ w
+        p = 1.0 / (1.0 + np.exp(-z))
+        return C * np.sum(np.logaddexp(0.0, z) - y * z) + 0.5 * w @ w, C * Ms.T @ (p - y) + w
+
+    r = minimize(loss, np.zeros(Ms.shape[1]), jac=True, method="L-BFGS-B")
+    w = np.zeros(M.shape[1])
+    w[keep] = r.x / sd[keep]
+    return w
+
+
+def combiner(run_dir, exp, lab, records_path):
+    items = manifest(lab, "calib")
+    label = {idem_key(it["path"], it["recipient"]): (1 if it["label"] == "junk" else 0) for it in items}
+    order = {idem_key(it["path"], it["recipient"]): i for i, it in enumerate(items)}
+    recs = [json.loads(l) for l in open(records_path)]
+    recs = [r for r in recs if r["idempotency_key"] in label and not r["input"]["parse_failed"]]
+    disabled = exp.get("combiner", {}).get("disabled", [])
+    mode = exp.get("combiner", {}).get("memory", "joint")
+    if mode == "residual":
+        # Calib order, whatever order the records were written in (the learning test writes them
+        # in date order): the base then gets exactly the rows, and so the fit, of a run without memory.
+        recs.sort(key=lambda r: order[r["idempotency_key"]])
+    names = sorted({k for r in recs for k in r["features"]})
+    # A disabled entry removes a feature by exact name or by prefix ("links." removes all link facts).
+    names = [n for n in names if not any(n.startswith(d) for d in disabled)]
+    y = np.asarray([label[r["idempotency_key"]] for r in recs])
+    if mode == "joint":
+        X = np.asarray([[r["features"].get(n, 0.0) for n in names] for r in recs], dtype=float)
+        keep, w, b = fit_logistic(X, y, exp)
+        weights = {n: float(v) for n, v in zip([n for n, k in zip(names, keep) if k], w)}
+    elif mode == "residual":
+        # The base is fitted without memory, exactly as a combiner without memory would be; memory
+        # then only moves a decision where the mailbox knows the sender, its domain or the thread.
+        base = [n for n in names if not n.startswith(MEMORY)]
+        mem = [n for n in names if n.startswith(MEMORY) and n not in ABSENCE]
+        X = np.asarray([[r["features"].get(n, 0.0) for n in base] for r in recs], dtype=float)
+        keep, w, b = fit_logistic(X, y, exp)
+        weights = {n: float(v) for n, v in zip([n for n, k in zip(base, keep) if k], w)}
+        offset = b + X[:, keep] @ w
+        M = np.asarray([[r["features"].get(n, 0.0) for n in mem] for r in recs], dtype=float)
+        for n, v in zip(mem, fit_residual(M, y, offset, float(exp["combiner"]["C"]))):
+            if v != 0.0:
+                weights[n] = float(v)
+    else:
+        sys.exit(f"combiner.memory: unknown mode {mode!r}")
     digest = hashlib.sha256(json.dumps(weights, sort_keys=True).encode() + str(b).encode()).hexdigest()[:10]
     json.dump({"release": f"combiner:{digest}", "bias": b, "weights": weights},
               open(os.path.join(run_dir, "combiner.json"), "w"), indent=1, sort_keys=True)
-    print(json.dumps({"release": f"combiner:{digest}", "inputs": len(names), "calib_n": int(len(y))}))
+    print(json.dumps({"release": f"combiner:{digest}", "inputs": len(weights), "calib_n": int(len(y))}))
 
 
 if __name__ == "__main__":

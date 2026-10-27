@@ -1,0 +1,9 @@
+#!/bin/sh
+# IMAPSieve pipe target: $1 = junk | not_junk | sent, $2 = the mailbox owner; message on stdin.
+case "$1" in
+  junk) op=--junk ;;
+  not_junk) op=--not-junk ;;
+  sent) op=--sent ;;
+  *) exit 64 ;;
+esac
+exec /srv/l2/bin-real/firstread feedback --socket /srv/l2/run/feedback.sock --mailbox "$2" "$op" --actor "$2"

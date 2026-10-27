@@ -1,12 +1,18 @@
 [package]
 name = "firstread-graph"
-description = "Per-mailbox and platform-wide memory."
+description = "Per-mailbox memory: who this mailbox knows, which threads exist, what its owner judged."
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
 firstread-core.workspace = true
+firstread-parse.workspace = true
+firstread-links.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hmac.workspace = true
 
 [lints]
 workspace = true

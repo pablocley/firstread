@@ -1,0 +1,9 @@
+From: Nieuwsbrief <nieuws@winkel.example>
+To: dora@lab.invalid
+Subject: ACTIE: alles 70% KORTING!!!
+Date: Mon, 26 Oct 2026 11:00:00 +0100
+Message-ID: <news2@winkel.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Alleen vandaag!</p><p><a href="http://192.0.2.9/actie">https://www.winkel.example/actie</a></p></body></html>

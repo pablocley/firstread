@@ -1,16 +1,23 @@
 """L2: deliver over real Dovecot LMTP with the global Sieve scripts and read back what was stored.
 
 Run lab/l2/setup.sh first (as root). Tier 0 only, with the hand-set fixture combiner in
-lab/l2/combiner.json, so the result does not depend on any lab training run.
+lab/l2/combiner.json, so the result does not depend on any lab training run. The daemon runs with
+mailbox memory; the hook D cases move mail over IMAP and check what the next delivery decides.
 """
-import os, re, subprocess, sys, time
+import glob, imaplib, json, os, re, shutil, subprocess, sys, time
 
 REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 CONF = "/srv/l2/dovecot.conf"
 D = ["doveadm", "-c", CONF]
 DAEMON = [os.path.join(REPO, "target", "release", "firstreadd"), "--socket", "/srv/l2/run/firstread.sock",
           "--combiner", "/srv/l2/combiner.json", "--deployment", "lab-l2", "--mac-key", "l2-test-key",
-          "--junk-threshold", "0.9900990099009901", "--data-class", "public"]
+          "--junk-threshold", "0.9900990099009901", "--data-class", "public",
+          "--memory", "/srv/l2/memory", "--feedback-socket", "/srv/l2/run/feedback.sock",
+          "--records", "/srv/l2/records.jsonl"]
+shutil.rmtree("/srv/l2/memory", ignore_errors=True)
+for f in ["/srv/l2/records.jsonl"]:
+    if os.path.exists(f):
+        os.unlink(f)
 
 
 def sh(cmd, **kw):
@@ -21,9 +28,10 @@ def start_daemon(shadow=False):
     if os.path.exists("/srv/l2/run/firstread.sock"):
         os.unlink("/srv/l2/run/firstread.sock")
     p = subprocess.Popen(DAEMON + (["--shadow"] if shadow else []), stderr=open("/srv/l2/daemon.log", "a"))
-    while not os.path.exists("/srv/l2/run/firstread.sock"):
+    while not (os.path.exists("/srv/l2/run/firstread.sock") and os.path.exists("/srv/l2/run/feedback.sock")):
         time.sleep(0.05)
     os.chmod("/srv/l2/run/firstread.sock", 0o666)
+    os.chmod("/srv/l2/run/feedback.sock", 0o666)
     return p
 
 
@@ -36,7 +44,7 @@ def set_before(name):
 
 
 def clear(user):
-    for mb in ["INBOX", "Junk", "Later", "Acme"]:
+    for mb in ["INBOX", "Junk", "Later", "Acme", "Trash", "Sent"]:
         sh(D + ["expunge", "-u", user, "mailbox", mb, "all"])
 
 
@@ -48,7 +56,7 @@ def deliver(user, msg):
 
 def stored(user):
     out = []
-    for mb in ["INBOX", "Junk", "Later", "Acme"]:
+    for mb in ["INBOX", "Junk", "Later", "Acme", "Trash"]:
         r = sh(D + ["fetch", "-u", user, "flags hdr", "mailbox", mb, "all"])
         for block in r.stdout.split("\f"):
             if "hdr:" not in block:
@@ -109,3 +117,97 @@ def hanging_daemon_case():
 
 
 hanging_daemon_case()
+
+
+# Hook D: the owner's actions over IMAP teach the mailbox's memory; the next delivery shows it.
+def imap(user):
+    # The same login name as delivery uses (USER at LMTP is the full address), so IMAPSieve's
+    # imap.user names the same mailbox memory.
+    c = imaplib.IMAP4("127.0.0.1", 1143)
+    c.login(f"{user}@lab.invalid", "x")
+    return c
+
+
+def uid_of(c, msgid):
+    typ, data = c.uid("SEARCH", None, "HEADER", "Message-ID", msgid)
+    uids = data[0].split()
+    return uids[0] if uids else None
+
+
+def move(user, src, dst, msgid, how="MOVE"):
+    c = imap(user)
+    c.select(src)
+    uid = uid_of(c, msgid)
+    if uid is None:
+        c.logout()
+        return f"{msgid} not in {src}"
+    if how == "MOVE":
+        c.uid("MOVE", uid, dst)
+    else:
+        c.uid("COPY", uid, dst)
+        c.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
+        c.expunge()
+    c.logout()
+    time.sleep(0.3)
+    return f"{how} {src} -> {dst}"
+
+
+def append_sent(user, path):
+    c = imap(user)
+    c.append("Sent", "(\\Seen)", None, open(path, "rb").read())
+    c.logout()
+    time.sleep(0.3)
+
+
+def where(user, msgid):
+    for mb in ["INBOX", "Junk", "Trash", "Sent"]:
+        r = sh(D + ["search", "-u", user, "mailbox", mb, "header", "Message-ID", msgid])
+        if r.stdout.strip():
+            return mb
+    return "nowhere"
+
+
+def label_events():
+    n = 0
+    for f in glob.glob("/srv/l2/memory/*.events.jsonl"):
+        n += sum(1 for l in open(f) if '"kind":"label"' in l)
+    return n
+
+
+def hook_d_cases():
+    set_before("before")
+    clear("dora")
+    p = start_daemon()
+    try:
+        print("\n## M hook D: the owner's moves teach the next delivery (user dora)")
+        deliver("dora", "news1")
+        print(f"  news1 from nieuws@winkel.example, unknown sender: {where('dora', 'news1@winkel.example')}")
+        print(f"  owner: {move('dora', 'Junk', 'INBOX', 'news1@winkel.example')}")
+        deliver("dora", "news2")
+        print(f"  news2, same sender after the rescue: {where('dora', 'news2@winkel.example')}")
+        deliver("dora", "friend1")
+        print(f"  friend1 from pieter@vriend.example: {where('dora', 'friend1@vriend.example')}")
+        print(f"  owner: {move('dora', 'INBOX', 'Junk', 'friend1@vriend.example', how='COPY')} (COPY, then expunge)")
+        deliver("dora", "friend2")
+        print(f"  friend2, same sender after the owner junked one: {where('dora', 'friend2@vriend.example')}")
+        deliver("dora", "other1")
+        print(f"  other1 from promo@ander.example: {where('dora', 'other1@ander.example')}")
+        print(f"  owner: {move('dora', 'Junk', 'Trash', 'other1@ander.example')} (deleting junk teaches nothing)")
+        deliver("dora", "other2")
+        print(f"  other2, same sender: {where('dora', 'other2@ander.example')}")
+        append_sent("dora", "/srv/l2/msgs/sent1.eml")
+        print("  owner: APPEND to Sent, a message to contact@partner.example")
+        deliver("dora", "contact1")
+        rec = [json.loads(l) for l in open("/srv/l2/records.jsonl")]
+        last = rec[-1]["features"]
+        print(f"  contact1, the reply: {where('dora', 'reply1@partner.example')}; "
+              f"wrote_to_sender={last['mailbox.wrote_to_sender']:.0f} known_thread={last['mailbox.known_thread']:.0f} "
+              f"first_contact={last['mailbox.first_contact']:.0f}")
+        print(f"  label events learned: {label_events()} (the two moves by the owner; firstread's own filing into Junk at delivery is not an IMAP action)")
+        print(f"  snapshots in the records: {[r['provenance'].get('snapshot') for r in rec if r['input']['recipient'].startswith('dora')]}")
+    finally:
+        p.terminate()
+        p.wait()
+
+
+hook_d_cases()

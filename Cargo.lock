@@ -155,6 +155,12 @@ name = "firstread-graph"
 version = "0.0.0"
 dependencies = [
  "firstread-core",
+ "firstread-links",
+ "firstread-parse",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -214,6 +220,7 @@ version = "0.0.0"
 dependencies = [
  "firstread-auth",
  "firstread-core",
+ "firstread-graph",
  "firstread-links",
  "firstread-parse",
  "hmac",
@@ -234,6 +241,8 @@ name = "firstreadd"
 version = "0.0.0"
 dependencies = [
  "firstread-core",
+ "firstread-graph",
+ "firstread-parse",
  "firstread-pipeline",
  "serde",
  "serde_json",

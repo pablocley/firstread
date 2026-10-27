@@ -64,6 +64,14 @@ newsletters you never read, forwarded chains, and every flavour of scam.
 
 ## Per mailbox
 
+Built in v0 ([ADR-0018](decisions/0018-mailbox-memory-v0.md), `firstread-graph`, inputs
+`mailbox.*`): sender relationship (seen, written to, first contact, judged junk or not by the
+owner, per address and per domain), known and unknown threads (a reply to nothing this mailbox
+received or sent), and an IBAN new or known for a sender domain. Only the IBAN facts wait for a
+verified identity; the others key on the From address, which falls short of the safety floor below
+until history that lowers P(junk) is read only for verified identities (ADR-0018). The rest of this
+table is not built.
+
 | signal | notes |
 |---|---|
 | **sender relationship** | none / seen / you wrote to them / regular two-way correspondent; seeded from the Sent folder |
