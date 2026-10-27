@@ -1,0 +1,45 @@
+# Registrable domains where anyone can get an address. Facts per domain are never kept for these
+# (one Gmail user tells nothing about another); facts per address still are.
+# Starting point: haraka-plugin-known-senders config/known-senders.ini [ignored_ods] (MIT,
+# checked 2026-10-27), plus large consumer providers and Dutch ISP mail domains. A data file:
+# extend it, do not hard-code.
+gmail.com
+googlemail.com
+hotmail.com
+outlook.com
+live.com
+msn.com
+yahoo.com
+aol.com
+icloud.com
+me.com
+mac.com
+proton.me
+protonmail.com
+pm.me
+gmx.com
+gmx.net
+gmx.de
+web.de
+mail.com
+zoho.com
+yandex.com
+yandex.ru
+mail.ru
+qq.com
+163.com
+126.com
+naver.com
+fastmail.com
+tutanota.com
+ziggo.nl
+kpnmail.nl
+kpnplanet.nl
+planet.nl
+hetnet.nl
+home.nl
+casema.nl
+chello.nl
+upcmail.nl
+xs4all.nl
+telfort.nl

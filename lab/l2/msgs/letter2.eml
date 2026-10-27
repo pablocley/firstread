@@ -1,0 +1,9 @@
+From: De Krant <nieuwsbrief@krant.example>
+To: dora@lab.invalid
+Subject: ACTIE: alles 70% KORTING!!!
+Date: Mon, 26 Oct 2026 16:00:00 +0100
+Message-ID: <letter2@krant.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><body><p>Alleen vandaag!</p><p><a href="http://192.0.2.9/actie">https://www.krant.example/actie</a></p></body></html>

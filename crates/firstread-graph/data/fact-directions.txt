@@ -1,0 +1,20 @@
+# The direction of every mailbox fact: which way its combiner weight may push P(junk).
+# raises: weight >= 0 (the fact can only make mail look more like junk)
+# lowers: weight <= 0 (the fact can only make mail look less like junk)
+# firstreadd refuses a combiner whose weight for a mailbox fact points the other way, and
+# ml/heads/train.py fits memory within these bounds. The direction is part of what a fact means,
+# not something to learn from a corpus: SpamAssassin's 2002 mail has no authentication and few
+# IBANs, and fitted freely it taught "a new IBAN for this domain" to lower P(junk).
+mailbox.sender_junk_log raises
+mailbox.domain_junk_log raises
+mailbox.spoof_of_verified raises
+mailbox.iban_new_for_domain raises
+mailbox.first_contact raises
+mailbox.unknown_thread raises
+mailbox.sender_ok_log lowers
+mailbox.domain_ok_log lowers
+mailbox.wrote_to_sender lowers
+mailbox.wrote_to_sender_unverified lowers
+mailbox.wrote_to_domain lowers
+mailbox.reply_to_sent lowers
+mailbox.iban_known_for_domain lowers
