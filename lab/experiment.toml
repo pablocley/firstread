@@ -33,6 +33,11 @@ C = 4.0
 l1_ratio = 1.0
 # Feature names or prefixes to leave out, e.g. ["links.", "auth."].
 disabled = []
+# Mailbox memory (mailbox.*): "joint" fits it with everything else; "residual" fits the rest
+# without memory first, then memory on top of it without an intercept and without the absence
+# facts, so mail from a sender, domain and thread the mailbox does not know is decided exactly as
+# without memory. Only the learning test (lab/harness/learning.py) produces mailbox.* inputs.
+memory = "residual"
 
 [thresholds]
 # "cost" derives the Bayes threshold from the cost table: P(junk) >= c_fp / (c_fp + c_fn).
