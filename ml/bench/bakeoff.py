@@ -2,7 +2,7 @@
 run is in git at 2c029ae) on lab mail: separation (AUC) and time per mail, nothing more.
 
 Usage: python3 -I bakeoff.py sample <lab_data> <out_dir> [--n-per-group 10]
-       python3 -I bakeoff.py mica <weights_dir> <mica_src_dir> <out_dir> [--threads N]
+       python3 -I bakeoff.py sidecar <decision_socket> <out_dir> --name NAME
        python3 -I bakeoff.py report <lab_data> <out_dir>
 
 `sample` picks a fixed, seeded sample of the dev split (synthetic Dutch phishing, CEO and IBAN fraud,
@@ -14,8 +14,9 @@ per question the AUC against the labels and the accuracy at score 0, plus the e5
 the lab run for is_spam. A cheap ranking signal, not an evaluation (docs/07-evaluation.md): the Dutch
 phishing and fraud labels are synthetic.
 
-mica: the prompt of the model's own runtime (mica.native.prompt_for, akivet/Mica) through transformers,
-score = logit("Yes") - logit("No") at the last prompt position, as its llama.cpp backend reads it.
+sidecar: through ml/sidecar/decision_server.py in front of Mica's own server (llama.cpp on CPU), the path
+firstreadd takes; score = log P(true) - log P(false). (The first run used transformers in BF16 instead;
+that path is in git at 2c029ae.)
 """
 import argparse
 import json
@@ -70,29 +71,25 @@ def run(a, name, score_one, release):
     json.dump({"model": release, "threads": a.threads, "rows": rows}, open(os.path.join(a.out, f"{name}.json"), "w"))
 
 
-def mica(a):
-    import torch
-    torch.set_num_threads(a.threads)
-    sys.path.insert(0, a.src)
-    from mica.native import prompt_for
-    from transformers import AutoTokenizer, Qwen3_5ForConditionalGeneration
-    tok = AutoTokenizer.from_pretrained(a.weights)
-    model = Qwen3_5ForConditionalGeneration.from_pretrained(a.weights, dtype=torch.bfloat16).eval()
-    yes, no = (tok.encode(w, add_special_tokens=False) for w in ("Yes", "No"))
-    assert len(yes) == len(no) == 1, "Yes / No must be single tokens"
-    qs = questions()
+def sidecar(a):
+    """Through a decision sidecar (ml/sidecar/decision_server.py), the path firstreadd takes."""
+    import socket
+    import struct
+
+    def call(req):
+        c = socket.socket(socket.AF_UNIX); c.connect(a.socket)
+        b = json.dumps(req).encode(); c.sendall(struct.pack(">I", len(b)) + b)
+        n = struct.unpack(">I", c.recv(4))[0]; d = b""
+        while len(d) < n:
+            d += c.recv(n - len(d))
+        return json.loads(d)
+    release = call({"op": "manifest"})["release"]
+    specs = [{"id": q["id"], "text": q["text"], "kind": "noul", "outcomes": []} for q in questions()]
 
     def one(text):
-        out = []
-        for q in qs:
-            row = {"kind": "noul", "state": text, "question": q["text"],
-                   "candidates": [{"id": "false", "text": "No"}, {"id": "true", "text": "Yes"}]}
-            ids = tok(prompt_for(row, tok), return_tensors="pt", add_special_tokens=False).input_ids
-            with torch.no_grad():
-                logits = model(input_ids=ids).logits[0, -1].float()
-            out.append(float(logits[yes[0]] - logits[no[0]]))
-        return out
-    run(a, "mica4b", one, "sky7350/Mica-v0.5-4B (bf16, transformers)")
+        z = call({"op": "logits", "text": text, "questions": QS, "specs": specs})["logits"]
+        return [t - f for f, t in z]
+    run(a, a.name, one, release)
 
 
 def auc(pos, neg):
@@ -143,7 +140,7 @@ def report(a):
 ap = argparse.ArgumentParser()
 sub = ap.add_subparsers(dest="cmd", required=True)
 s = sub.add_parser("sample"); s.add_argument("lab"); s.add_argument("out"); s.add_argument("--n-per-group", type=int, default=10)
-m = sub.add_parser("mica"); m.add_argument("weights"); m.add_argument("src"); m.add_argument("out"); m.add_argument("--threads", type=int, default=4)
+m = sub.add_parser("sidecar"); m.add_argument("socket"); m.add_argument("out"); m.add_argument("--name", required=True); m.add_argument("--threads", type=int, default=0)
 r = sub.add_parser("report"); r.add_argument("lab"); r.add_argument("out")
 a = ap.parse_args()
-{"sample": sample, "mica": mica, "report": report}[a.cmd](a)
+{"sample": sample, "sidecar": sidecar, "report": report}[a.cmd](a)

@@ -30,7 +30,8 @@ python3 -I bench/bench_encoders.py <empty cache dir>
 python3 -I bench/bakeoff.py sample|mica|report ...   # decision-model bake-off (docs/measurements)
 ```
 
-`bakeoff.py mica` uses the prompt code of Mica's own runtime (akivet/Mica, pinned in the measurement).
+`sidecar/mica_serve.py` starts Mica's own server with a CPU thread count (its server leaves llama.cpp at
+4); `bakeoff.py sidecar` measures through the tier-2 sidecar, as firstreadd calls it.
 
 ## Rules
 
