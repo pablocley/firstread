@@ -5,7 +5,7 @@ the hand-off is an ONNX model, its tokenizer, a calibration file, and a manifest
 
 ```
 bench/        latency and sanity benchmarks (the 2026-10-26 baseline lives here)
-distill/      teacher runs (JEV-27B / 35B on a GPU) and dataset building          (to build)
+distill/      teacher runs: a decision model labels lab mail (teach.py)
 train/        tier-1 heads and optional encoder fine-tuning                      (to build)
 calibrate/    per-head temperature fitting, reliability reports                  (to build)
 export/       ONNX export, int8 quantisation, parity checks against fp32         (to build)
@@ -18,7 +18,9 @@ eval/         the evaluation harness over fixtures/ and the private eval set    
 score question) over cached embeddings; `sidecar/decision_server.py` serves a JEV-style decision
 model as tier 2 (any question, by its text). `heads/train.py` trains heads for the questions in
 `[heads] questions` that the lab's items label, and `train.py verdict <kind>` a verdict's combiner.
-Tests, with the lab's Python: `python3 -I tests/test_sidecars.py` and `python3 -I tests/test_train.py`.
+`distill/teach.py` has a decision model label lab messages with the whole catalogue (the teacher),
+and `[heads] teacher` in `lab/experiment.toml` distils heads from its answers. Tests, with the lab's
+Python: `python3 -I tests/test_sidecars.py`, `tests/test_train.py` and `tests/test_distill.py`.
 
 ## Running the existing benchmarks
 

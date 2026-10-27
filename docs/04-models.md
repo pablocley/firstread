@@ -144,6 +144,13 @@ held-out data, it is promoted to a tier-1 head and stops costing a decision-mode
 
 ## Distillation
 
+Built ([ADR-0020](decisions/0020-verdicts-tier2-hook-c-api.md)): `ml/distill/teach.py` has a decision
+model behind the sidecar protocol answer the whole question catalogue for lab messages, resumably,
+and checks it against the lab's human labels (`agreement.json`); `ml/heads/train.py` with `[heads]
+teacher` distils heads for the questions the lab has no labels for (noul by confidence-weighted
+P(true) ≥ 0.5, choice and score as matrix heads), calibrated against the teacher. Not run yet: the
+teacher available on CPU is the 0.8B model, not JEV-27B, and its agreement decides what is kept.
+
 | ingredient | what | caution |
 |---|---|---|
 | teacher | JEV-27B / JEV-35B (Apache-2.0) on a GPU, offline, answering the decision catalogue for each training message | English-centric; validate the teacher on Dutch against human labels before trusting its distributions |

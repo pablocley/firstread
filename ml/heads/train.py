@@ -7,8 +7,12 @@ Usage:
 
 `heads` trains one logistic head per question in `[heads] questions` (default `["is_spam"]`) on
 cached embeddings of the train split, then fits a temperature per question on the calib split. A
-question is trained only where the lab's items say its answer (LABELS below) and both answers are
-common enough; otherwise it gets no head and no calibration, so the daemon never asks it.
+question is trained where the lab's items say its answer (labels.py); with `[heads] teacher = "<dir>"`
+(a run of ml/distill/teach.py under <lab_data>/teacher/) the other questions are distilled from the
+teacher's answers: a noul question from P(true) >= 0.5, weighted by the teacher's confidence; a choice
+or score question from its most likely outcome, as a matrix head. A distilled head is calibrated
+against the teacher, so it can be no better than the teacher's agreement.json says. Too few of each
+answer, and a question gets no head and no calibration, so the daemon never asks it.
 `combiner` trains junk's linear combiner over the tier-0 features and head logits that the real
 pipeline recorded for the calib split. `verdict` trains the combiner of another verdict the same
 way, from VERDICT_LABELS, without mailbox facts for the safety verdicts (the safety floor).
@@ -27,32 +31,9 @@ from sklearn.linear_model import LogisticRegression
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sidecar"))
 from providers import Cache, resolve, space_id  # noqa: E402
 
-# Which items answer which question: 1, 0, or None (the item does not say; left out, never guessed).
-# Legitimate mail is never phishing or fraud. Junk says which kind only in the synthetic Dutch slice,
-# whose subclasses are labelled by construction (lab/harness/synth_nl.py): heads and combiners for
-# these questions rest on synthetic positives, which docs/13-lab.md calls optimistic.
-SYNTH = "synthetic_nl"
-FRAUD = {"fraud_ceo", "fraud_iban"}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from labels import LABELS, VERDICT_LABELS  # noqa: E402
 
-
-def kind_label(subclasses):
-    def f(it):
-        if it["label"] != "junk":
-            return 0
-        if it["slice"] != SYNTH:
-            return None
-        return 1 if it.get("subclass") in subclasses else 0
-    return f
-
-
-LABELS = {
-    "is_spam": lambda it: 1 if it["label"] == "junk" else 0,
-    "risk_phishing": kind_label({"phishing"}),
-    "risk_fraud": kind_label(FRAUD),
-    "asks_payment_or_bank_change": lambda it: (None if it["slice"] != SYNTH else
-                                               1 if it.get("subclass") in FRAUD | {"invoice", "reminder"} else 0),
-}
-VERDICT_LABELS = {"junk": LABELS["is_spam"], "phishing": LABELS["risk_phishing"], "fraud": LABELS["risk_fraud"]}
 SAFETY = {"phishing", "fraud"}
 # Fewest examples of each answer a head or combiner needs in a split.
 MIN_EACH = {"train": 20, "calib": 5}
@@ -93,6 +74,62 @@ def enough(y, split):
     return int(y.sum()) >= MIN_EACH[split] and int(len(y) - y.sum()) >= MIN_EACH[split]
 
 
+def teacher_xy(lab, split, rv, cache, teacher, q):
+    """Embeddings and the teacher's answer for question q, for the messages the teacher read."""
+    path = os.path.join(lab, "teacher", teacher, f"{split}.jsonl")
+    answers = {t["id"]: t["p"][q] for t in map(json.loads, open(path)) if q in t["p"]}
+    rend = rendered(lab, split, rv)
+    X, P = [], []
+    for it in manifest(lab, split):
+        if it["id"] in answers:
+            v = cache.get(rend[it["id"]]["text_sha256"])
+            if v is None:
+                raise SystemExit(f"missing embedding for {it['id']}")
+            X.append(v)
+            P.append(answers[it["id"]])
+    if not X:
+        return np.zeros((0, 0)), np.zeros((0, 0))
+    return np.vstack(X), np.asarray(P, dtype=float)
+
+
+def fit_temperature_multi(Z, y):
+    best_t, best = 1.0, float("inf")
+    for t in np.exp(np.linspace(math.log(0.05), math.log(20), 400)):
+        z = Z / t
+        z = z - z.max(1, keepdims=True)
+        logp = z - np.log(np.exp(z).sum(1, keepdims=True))
+        nll = -np.mean(logp[np.arange(len(y)), y])
+        if nll < best:
+            best, best_t = nll, float(t)
+    return best_t
+
+
+def distil(Xtr, Ptr, Xc, Pc, C):
+    """A head from teacher answers. Returns (head, temperature) or a reason it could not be trained."""
+    k = Ptr.shape[1]
+    if k == 2:
+        ytr, yc = (Ptr[:, 1] >= 0.5).astype(int), (Pc[:, 1] >= 0.5).astype(int)
+        if not (enough(ytr, "train") and enough(yc, "calib")):
+            return f"too few teacher answers of each kind (train {int(ytr.sum())}/{len(ytr)})"
+        clf = LogisticRegression(C=C, max_iter=4000)
+        clf.fit(Xtr, ytr, sample_weight=np.abs(2 * Ptr[:, 1] - 1) + 1e-3)
+        w, b = clf.coef_[0].astype(float), float(clf.intercept_[0])
+        return {"w": w.tolist(), "b": b}, fit_temperature(Xc @ w + b, yc)
+    ytr, yc = Ptr.argmax(1), Pc.argmax(1)
+    common = [c for c in range(k) if int((ytr == c).sum()) >= MIN_EACH["train"]]
+    if len(common) < 2:
+        return f"the teacher gives fewer than two outcomes {MIN_EACH['train']} times"
+    clf = LogisticRegression(C=C, max_iter=4000)
+    clf.fit(Xtr, ytr)
+    # One row per outcome, in outcome order; an outcome the teacher never chose can never win.
+    W, b = np.zeros((k, Xtr.shape[1])), np.full(k, -20.0)
+    rows = clf.coef_ if len(clf.classes_) > 2 else np.vstack([-clf.coef_[0] / 2, clf.coef_[0] / 2])
+    bias = clf.intercept_ if len(clf.classes_) > 2 else np.array([-clf.intercept_[0] / 2, clf.intercept_[0] / 2])
+    for row, c in enumerate(clf.classes_):
+        W[c], b[c] = rows[row], bias[row]
+    return {"W": W.tolist(), "b": b.tolist()}, fit_temperature_multi(Xc @ W.T + b, yc)
+
+
 def fit_temperature(z, y):
     best_t, best = 1.0, float("inf")
     for t in np.exp(np.linspace(math.log(0.05), math.log(20), 400)):
@@ -116,7 +153,21 @@ def heads(run_dir, exp, lab, cache_dir):
     space = space_id(provider_cfg(exp), rv)
     cache = Cache(cache_dir, space)
     trained, temps, report = {}, {}, {}
+    teacher = exp["heads"].get("teacher")
     for q in exp["heads"].get("questions", ["is_spam"]):
+        if q not in LABELS and teacher:
+            Xtr, Ptr = teacher_xy(lab, "train", rv, cache, teacher, q)
+            Xc, Pc = teacher_xy(lab, "calib", rv, cache, teacher, q)
+            if len(Xtr) == 0 or len(Xc) == 0:
+                report[q] = "the teacher did not answer it"
+                continue
+            r = distil(Xtr, Ptr, Xc, Pc, float(exp["heads"]["C"]))
+            if isinstance(r, str):
+                report[q] = r
+                continue
+            trained[q], temps[q] = r
+            report[q] = {"labels": f"teacher {teacher}", "temperature": temps[q], "train_n": int(len(Xtr))}
+            continue
         if q not in LABELS:
             report[q] = "no labels in the lab"
             continue
@@ -130,10 +181,10 @@ def heads(run_dir, exp, lab, cache_dir):
         w, b = clf.coef_[0].astype(float), float(clf.intercept_[0])
         trained[q] = {"w": w.tolist(), "b": b}
         temps[q] = fit_temperature(Xc @ w + b, yc)
-        report[q] = {"temperature": temps[q], "train_n": int(len(ytr)), "train_pos": int(ytr.sum())}
+        report[q] = {"labels": "lab", "temperature": temps[q], "train_n": int(len(ytr)), "train_pos": int(ytr.sum())}
     if not trained:
         sys.exit(f"no head could be trained: {report}")
-    blob = b"".join(np.asarray(h["w"], dtype=np.float32).tobytes() + str(h["b"]).encode()
+    blob = b"".join(np.asarray(h.get("w", h.get("W")), dtype=np.float32).tobytes() + str(h["b"]).encode()
                     for _, h in sorted(trained.items()))
     # One head keeps the release id it always had; more heads hash their names too.
     if list(trained) != ["is_spam"]:

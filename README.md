@@ -48,12 +48,21 @@ X-Firstread-Folder: junk
 | keywords | `$Phishing`, `$Junk`, `$Important`, `$IsTrusted`, `$HasAttachment`, `$CanUnsubscribe`, `fr-money`, your own rule tags… |
 | folder | Junk for junk and phishing; Later for bulk you never read, if you turn it on |
 
+**A moment later, from the decision model.** A JEV-style decision model reads the mail and answers
+questions in plain words: what does it want from you, how urgent is it, does it ask for a payment,
+a login or secrecy, what is it about, and your own rules ("mail where a customer asks for a
+refund" → `fr-retour`). It is too slow to hold up delivery (seconds per mail on a CPU), so it runs
+right after: its answers arrive as keywords, and a move to Junk if it finds phishing, because
+headers are written only once. It also teaches the small, fast models that answer at delivery
+(distillation), so the questions it answers well stop needing it.
+
 Fake firstread headers that arrive with a mail are always removed. The full record of every
 decision can be read back over a local API.
 
 Status: the junk decision is trained and measured ([results](#results-lab-2026-10-26)). The
-other verdicts, the tags and the decision model for unsure mail are built and tested, but stay
-off until the lab has trained them. Not deployed yet.
+other verdicts, the tags, the decision model and distillation from it are built and tested with
+stand-ins; the real model has not read any mail yet, and they stay off until the lab has run and
+checked them. Not deployed yet.
 
 ## Try it
 

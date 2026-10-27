@@ -58,7 +58,11 @@ Nothing in the lab labels importance, intent, urgency or category.
 9. **Hook C only adds.** An update adds keywords and sets a folder only when delivery filed nowhere;
    `doveadm move` runs only for a message still in INBOX and without `$NotJunk`; every value is
    its own argument, no shell. doveadm does not run IMAPSieve, so these writes are never feedback.
-10. **The record is the API's object.** Schema `firstread.verdict/2` adds verdicts with reasons,
+10. **Distillation from the decision model** (`ml/distill/teach.py`, `[heads] teacher`): the teacher
+    answers the catalogue for lab messages; heads for questions without human labels are trained on
+    its answers and calibrated against it. The teacher is first checked against the human labels the
+    lab has; a head can be no better than that agreement.
+11. **The record is the API's object.** Schema `firstread.verdict/2` adds verdicts with reasons,
     tags, the safety block (verified, relation, P(injection), hidden text) and the tier per
     decision, and carries the mailbox user. A tier-2 update is appended under the same id; the
     records are indexed by id. `--api-socket` serves `GET /v1/messages/{id}` read-only on a local
