@@ -88,7 +88,11 @@ second delivery get the same stamp id and makes learners count it once.
 
 - **State snapshot:** the learner state the decision read (counters, exemplars, heads), by id.
 - **Lookups:** DNS, RDAP and similar answers are cached, and the values used are recorded in the
-  event, because the internet changes and replay must not.
+  event, because the internet changes and replay must not. Built for DNS (`firstread-net`): every
+  lookup our own DKIM and DMARC checks make is in the record (`input.lookups`, with the time the
+  message was judged at, `input.at`); a recording replays them, where a name it does not hold is
+  a temporary error, never "no record", and a message judged outside the period the recording
+  stands for gets no answers at all.
 - **Configuration version:** thresholds, modes, data files.
 
 ### 3.4 Never inputs
@@ -273,6 +277,7 @@ standard way to report spam and ham from IMAP moves:
 |---|---|---|
 | copies or moves a message into Junk | `imapsieve_mailboxN_name = Junk`, causes `COPY` | `junk` |
 | copies or moves a message out of Junk, except to Trash | `name = *`, `from = Junk`, causes `COPY` | `not_junk` |
+| files a message into a folder of their own (not INBOX, Junk, Trash, Sent or Drafts) | `name = *`, causes `COPY` | `not_junk` |
 | a copy reaches Sent | `name = Sent`, causes `APPEND COPY` | `sent` |
 
 The scripts (`lab/l2/sieve/report-*.sieve`) pipe the message, with `imap.user`, to
@@ -280,9 +285,14 @@ The scripts (`lab/l2/sieve/report-*.sieve`) pipe the message, with `imap.user`, 
 "junk" | "not_junk" | "sent" | "forget", "mailbox", "actor", "at", "message_len"}` followed by the
 message bytes; the reply says `applied`, `duplicate`, `dropped` or `forgotten`. The daemon parses
 the message, hashes its identifiers and applies the event to that mailbox's memory
-([ADR-0018](decisions/0018-mailbox-memory-v0.md)).
+([ADR-0018](decisions/0018-mailbox-memory-v0.md); format 2,
+[ADR-0019](decisions/0019-own-dkim-dmarc-and-memory-v1.md)). A label lands on the record the
+delivery was counted under: verified or unverified, as that message was at delivery.
 
 - **Moving junk to Trash teaches nothing.** Deleting mail says nothing about whether it was wanted.
+- **Filing mail away means it was wanted** (mox's automatic junk flags do the same). Moving mail
+  from Junk into a folder of one's own fires two scripts; the second report is a duplicate and
+  counted once.
 - **firstread's own filing is not an action.** Delivery-time filing happens in LMTP, which does
   not run IMAPSieve; feedback from actors listed in `--own-actors` is dropped. Hook C, when built,
   uses `doveadm`, which does not run IMAPSieve either.
@@ -293,8 +303,9 @@ the message, hashes its identifiers and applies the event to that mailbox's memo
 - The IMAP login must be the same user name as delivery uses (`USER` at LMTP), so both name the
   same memory.
 
-Verified on Dovecot 2.3.21 / Pigeonhole 0.5.21 with `MOVE` and with `COPY` plus expunge
-(`lab/l2/cases.py`, case M; `lab/results/l2-dovecot-2.3.21.txt`).
+Verified on Dovecot 2.3.21 / Pigeonhole 0.5.21 with `MOVE` and with `COPY` plus expunge, including
+filing into a folder of the owner's own (`lab/l2/cases.py`, case M;
+`lab/results/l2-dovecot-2.3.21.txt`).
 
 ## 5 · Invariants (each one has a test)
 
