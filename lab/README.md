@@ -40,13 +40,23 @@ evaluation-only sources.
 ```
 datasets.toml   sources, terms, archives, lore pins        cost.toml      costs and keep tolerances
 experiment.toml the agent's file                            program.md     the agent's instructions
-harness/        fetch, prepare, render, run, score, synthetic Dutch, latency
+harness/        fetch, prepare, render, run, score, synthetic Dutch, latency, learning (mailboxes on a clock)
 loop/           exp.sh (one iteration), queue.py (a list of one-change ideas), log.py, patches/, queues/
 l2/             Dovecot config, Sieve scripts, fixtures, setup.sh, cases.py
 data/           message and split references (hashes only)
 results/<tag>/  results.tsv, pareto.tsv and head-to-head.json of each run tag, committed when the tag ends
 analysis/       probes outside the harness and the README charts
 ```
+
+## The learning test
+
+```sh
+HF_HUB_OFFLINE=1 python3 -I lab/harness/learning.py <run_dir>   # memory off vs on, three owner profiles, poisoning check
+```
+
+Mailboxes on a clock, owners acting through the real `firstread feedback`; `[combiner] memory` in
+`experiment.toml` picks how memory is fitted. Keep `<run_dir>` short (Unix socket paths). Results:
+[`results/memory-v0/`](results/memory-v0/), [measurement](../docs/measurements/2026-10-27-mailbox-memory.md).
 
 ## One iteration
 
