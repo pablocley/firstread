@@ -43,7 +43,8 @@ import score  # noqa: E402
 from providers import config_args, resolve, space_id  # noqa: E402
 
 PROTECTED = ["lab/harness/*.py", "lab/l2/*", "lab/l2/*/*", "ml/sidecar/*.py", "lab/cost.toml", "lab/datasets.toml", "lab/program.md",
-             "crates/*/src/*.rs", "crates/*/Cargo.toml", "Cargo.toml", "Cargo.lock"]
+             "crates/*/src/*.rs", "crates/*/data/*", "crates/*/Cargo.toml", "Cargo.toml", "Cargo.lock",
+             "lab/data/dns-recorded/*.jsonl", "lab/data/dns-recorded.meta.json"]
 TRUSTED_AUTHSERV = "smtp.subspace.kernel.org,mx.lab.firstread.invalid"
 MAC_KEY = "lab-only-key-not-a-secret"
 TIMING_SEED = 20261026
@@ -245,6 +246,22 @@ def start_sidecar(run_dir, name, cfg, rv, heads, py, timing):
     return proc, sock, stats
 
 
+def dns_args():
+    """Recorded DNS for our own DKIM and DMARC checks (lab/harness/record_dns.py), judged at each
+    message's Date: replays never touch the network. A message dated outside the period the
+    recording stands for (its meta file's window) gets no answers. The sealed split's recording, if
+    made, lives with the sealed split and is made the same day, for the same window."""
+    meta = json.load(open(os.path.join(REPO, "lab", "data", "dns-recorded.meta.json")))
+    shards = [os.path.join(REPO, "lab", "data", "dns-recorded", f"{i}.jsonl") for i in range(meta["shards"])]
+    args = ["--dns-window", "{},{}".format(*meta["window"]), "--clock", "message"]
+    for f in shards:
+        args += ["--dns-recorded", f]
+    sealed = os.path.join(LAB, "sealed", "dns-recorded.jsonl")
+    if os.path.exists(sealed):
+        args += ["--dns-recorded", sealed]
+    return args
+
+
 def start_daemon(run_dir, name, sidecar, calibration, combiner, threshold):
     sock = os.path.join(run_dir, f"{name}.sock")
     records = os.path.join(run_dir, f"{name}.records.jsonl")
@@ -252,7 +269,7 @@ def start_daemon(run_dir, name, sidecar, calibration, combiner, threshold):
         os.unlink(records)
     cmd = [os.path.join(BIN, "firstreadd"), "--socket", sock, "--records", records, "--deployment", "lab",
            "--mac-key", MAC_KEY, "--trusted-authserv", TRUSTED_AUTHSERV, "--junk-threshold", str(threshold),
-           "--data-class", "public"]
+           "--data-class", "public"] + dns_args()
     if sidecar:
         cmd += ["--sidecar", sidecar, "--calibration", calibration]
     if combiner:
